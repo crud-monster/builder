@@ -1,6 +1,6 @@
 {
   "name": "graphql-monster-builder",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "author": "Milan Medlik <milan.medlik@gmail.com>",
   "license": "MIT",
   "bin": "./bin/cli.js",
