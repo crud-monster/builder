@@ -211,3 +211,7 @@ _Note: what is in `gen/` is have fully on control the builder generator, so what
 -   [MongoDB](https://www.mongodb.com/)
 -   [Swagger](https://swagger.io/)
 -   [Jest](https://jestjs.io/)
+
+## Database providers
+
+New backends support `--database mongodb` (default), `--database postgresql` and `--database mysql`. SQL backends keep schema snapshots and generate migrations on regeneration. See [Database.md](Database.md) for setup, migration review, storage details and tests.
