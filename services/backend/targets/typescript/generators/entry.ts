@@ -1,5 +1,6 @@
 import { StructureBackend, SchemaModel, SchemaModelRelationType, SchemaModelType, MODELS_NOT_HAVE_CREATE } from '@common/types'
-import { writeToFile, templateToText, templateFileToText } from '@common/files'
+import { templateFileToText } from '../files'
+import { writeToFile, templateToText } from '@common/files'
 import { getOnlyOneRelatedMember, firstToLower, firstToUpper } from '@common/utils'
 import { BackendDirectory } from '../backendDirectory'
 import { model } from 'mongoose'

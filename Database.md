@@ -9,6 +9,26 @@ graphql-monster-builder models.schema ./server --database mysql
 
 The programmatic `exportAs` / `exportAsFromString` API accepts `{ database: 'postgresql' }` or `{ database: 'mysql' }` as its configuration. Regenerate with the same provider and output directory every time. Switching an existing backend between providers and moving existing MongoDB data into SQL are not supported.
 
+## Backend target
+
+TypeScript is the default backend target. It can also be selected explicitly:
+
+```sh
+graphql-monster-builder models.schema ./server --target typescript --database postgresql
+```
+
+The programmatic `exportAs` / `exportAsFromString` configuration accepts
+`{ target: 'typescript', database: 'postgresql' }`. Target selection is independent
+of the database provider. TypeScript is currently the only supported target;
+unsupported targets are rejected before output files are changed. The builder
+parses the schema once and passes the models to the selected target generator.
+
+The TypeScript target owns its generators, templates, output directory layout,
+and database runtime under `services/backend/targets/typescript/`. Database
+metadata, schema diffs, SQL statements and snapshot history remain shared under
+`services/backend/database/`. The selected target supplies the migration file
+format; TypeScript retains the existing `.cjs` migrations and Knex runner.
+
 ## Running a SQL backend
 
 Install the generated project's dependencies. Configure either `DATABASE_URL`, or `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER` and `DB_PASSWORD`. Configuration is loaded through the existing dotenv-flow setup, so local values can live in `.env.development.local`.

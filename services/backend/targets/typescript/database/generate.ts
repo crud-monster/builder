@@ -1,11 +1,11 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import { templateFileToText } from '../../common/files'
-import { SchemaModel, SchemaModelType } from '../../common/types'
-import { firstToLower } from '../../common/utils'
+import { templateFileToText } from '../files'
+import { SchemaModel, SchemaModelType } from '@common/types'
+import { firstToLower } from '@common/utils'
 import { BackendDirectory } from '../backendDirectory'
 import { createService, generateServiceToFile } from '../generators/service'
-import { DatabaseProvider } from './schema'
+import { DatabaseProvider } from '../../../database/schema'
 
 export function generateSqlModel(directory: BackendDirectory, model: SchemaModel) {
     // Embedded entities live in JSON columns and do not have their own SQL table.

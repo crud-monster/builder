@@ -2,8 +2,8 @@ import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
 import { exportAsFromString } from './build'
-import { filterValue as graphqlFilterValue, PATHIS } from './templates/extras'
-import { filterValue as restFilterValue } from './templates/api/api-utils.t'
+import { filterValue as graphqlFilterValue, PATHIS } from './targets/typescript/templates/extras'
+import { filterValue as restFilterValue } from './targets/typescript/templates/api/api-utils.t'
 
 describe.each([
     ['GraphQL', graphqlFilterValue],

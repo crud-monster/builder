@@ -29,6 +29,11 @@ const parsedArguments = yargs
         description: 'Generate docker file (not implemented yet)',
         type: 'boolean',
     })
+    .option('target', {
+        description: 'Language for the generated backend',
+        choices: ['typescript'],
+        default: 'typescript',
+    })
     .option('database', {
         description: 'Database for the generated backend',
         choices: ['mongodb', 'postgresql', 'mysql'],
@@ -47,6 +52,7 @@ async function main() {
     if (argv.fd) await frontendFromSchema(outDir, schema, outDir)
     else
         await exportAs(outDir, schema, outDir, {
+            target: argv.target as 'typescript',
             database: argv.database as 'mongodb' | 'postgresql' | 'mysql',
             integrationTestsEnable: true,
             extras: {

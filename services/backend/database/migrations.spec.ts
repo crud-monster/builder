@@ -3,7 +3,8 @@ import * as os from 'os'
 import * as path from 'path'
 import { exportAsFromString } from '../build'
 import { getModelsFromSchema } from '../../parser/scan'
-import { diffSchemas, prepareMigration } from './migrations'
+import { diffSchemas, prepareMigration as prepareDatabaseMigration, MigrationFormat } from './migrations'
+import { prepareMigration } from '../targets/typescript/database/migrations'
 import { databaseProvider, DatabaseSchema, schemaFromModels } from './schema'
 
 describe('database snapshots and migrations', () => {
@@ -12,6 +13,27 @@ describe('database snapshots and migrations', () => {
     afterEach(() => { fs.rmSync(directory, { recursive: true, force: true }) })
     const schema = async (source: string, provider: 'postgresql' | 'mysql' = 'postgresql') => schemaFromModels(await getModelsFromSchema(source), provider)
     const migrations = () => fs.readdirSync(path.join(directory, 'database/migrations')).sort()
+
+    it('reuses SQL planning and snapshot history with a non-JavaScript migration format', async () => {
+        const format: MigrationFormat = {
+            extension: 'sql',
+            render: ({ plan }) => plan.statements.map(sql => sql + ';').join('\n') + '\n',
+        }
+        const initial = await schema('model Todo {\n title: String\n}')
+        const updated = await schema('model Todo {\n title: String\n done: Boolean\n}')
+        prepareDatabaseMigration(directory, initial, format).commit()
+        const originalFile = migrations()[0]
+        const original = fs.readFileSync(path.join(directory, 'database/migrations', originalFile), 'utf8')
+        expect(originalFile).toMatch(/\.sql$/)
+        expect(original).toBe(format.render({ id: '', version: 1, hash: '', schema: initial, plan: diffSchemas(undefined, initial) }))
+        const next = prepareDatabaseMigration(directory, updated, format)
+        next.commit()
+        expect(next.snapshot.version).toBe(2)
+        expect(migrations()).toHaveLength(2)
+        expect(fs.readFileSync(path.join(directory, 'database/migrations', originalFile), 'utf8')).toBe(original)
+        prepareDatabaseMigration(directory, updated, format).commit()
+        expect(migrations()).toHaveLength(2)
+    })
 
     it('ignores source order, whitespace and API protection changes in the database diff', async () => {
         const a = await schema('model Todo {\n title: String\n done: Boolean\n}')
