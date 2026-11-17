@@ -12,7 +12,7 @@
     "prebuild": "node -e \"require('fs').rmSync('dist', { recursive: true, force: true })\"",
     "build": "tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json",
     "postbuild": "npm run copy:templates && npm run copy:package",
-    "copy:templates": "copyfiles \"services/backend/targets/typescript/templates/**/*\" dist/",
+    "copy:templates": "copyfiles \"services/backend/targets/*/templates/**/*\" dist/",
     "copy:package": "copyfiles ./package.json ./dist/",
     "build:todo": "npx ts-node index.ts -bd -d ./examples/todo.schema server3",
     "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js",
@@ -22,6 +22,7 @@
     "lint:fix": "eslint . --fix",
     "test:unit": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --testPathIgnorePatterns=integration-tests",
     "test:integration": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --testPathPattern=integration-tests",
+    "test:rust": "npm run build && node scripts/rust-smoke.cjs",
     "test:sql": "npm run build && node scripts/sql-smoke.cjs"
   },
   "dependencies": {

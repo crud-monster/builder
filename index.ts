@@ -5,7 +5,7 @@ import * as yargs from 'yargs'
 import log, { setupLogLevel } from '@log'
 
 import { frontendFromSchema } from './services/frontend/frontend'
-import { exportAs } from './services/backend/build'
+import { exportAs, BackendTargetName } from './services/backend/build'
 
 const parsedArguments = yargs
     .usage('Usage: $0 <command> [options] path/to/schema.file [desctination/folder]')
@@ -31,13 +31,12 @@ const parsedArguments = yargs
     })
     .option('target', {
         description: 'Language for the generated backend',
-        choices: ['typescript'],
+        choices: ['typescript', 'rust'],
         default: 'typescript',
     })
     .option('database', {
-        description: 'Database for the generated backend',
+        description: 'Database (default: mongodb for typescript, postgresql for rust)',
         choices: ['mongodb', 'postgresql', 'mysql'],
-        default: 'mongodb',
     })
     .help()
     .alias('help', 'h').argv
@@ -49,21 +48,24 @@ async function main() {
     console.log(`Generate schema: '${schema} to ${outDir} (version: ${require('./package.json').version})`)
     const start = Date.now()
 
+    if (argv.fd && argv.target === 'rust') throw new Error('Rust target only supports backend generation')
     if (argv.fd) await frontendFromSchema(outDir, schema, outDir)
     else
         await exportAs(outDir, schema, outDir, {
-            target: argv.target as 'typescript',
+            target: argv.target as BackendTargetName,
             database: argv.database as 'mongodb' | 'postgresql' | 'mysql',
-            integrationTestsEnable: true,
-            extras: {
-                config: { "from './sendMail'": "from '../services/sendMail'" },
-            },
+            ...(argv.target === 'typescript' ? {
+                integrationTestsEnable: true,
+                extras: {
+                    config: { "from './sendMail'": "from '../services/sendMail'" },
+                },
+            } : {}),
         })
 
     const ms = Date.now() - start
 
     log.info(`Done in ${ms}ms. Next step:`)
-    log.info(`\tcd ${outDir}/ && yarn && yarn start\n`)
+    log.info(argv.target === 'rust' ? `\tcd ${outDir}/ && cargo check\n` : `\tcd ${outDir}/ && yarn && yarn start\n`)
 }
 
 main().catch((error) => {

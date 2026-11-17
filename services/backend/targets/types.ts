@@ -1,7 +1,7 @@
 import type { SchemaModel } from '@common/types'
 import type { DatabaseProvider } from '../database/schema'
 
-export type BackendTargetName = 'typescript'
+export type BackendTargetName = 'typescript' | 'rust'
 
 export interface BackendConfig {
     target?: BackendTargetName
