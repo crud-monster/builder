@@ -43,9 +43,13 @@ export const _MODEL_LOWER_NAME_Count = (entry, protections) => {
     }
 }
 
+const _MODEL_LOWER_NAME_AuthorizeRead = (entry, protections) => async (data, ctx) => {
+    _PROTECT_ONE_
+}
+
 export const _MODEL_LOWER_NAME_One = (entry, protections) => {
     return async (root, data, ctx) => {
-        _PROTECT_ONE_
+        await _MODEL_LOWER_NAME_AuthorizeRead(entry, protections)(data, ctx)
         if (entry.hooks && entry.hooks.resolvers && entry.hooks.resolvers['before_MODEL_UPPER_NAME_One']) {
             await entry.hooks.resolvers['before_MODEL_UPPER_NAME_One'](entry, { root, data, ctx })
         }
@@ -140,6 +144,7 @@ export const generate_MODEL_NAME_Resolver = (entry) => {
         all: _MODEL_LOWER_NAME_All(entry, protections),
         count: _MODEL_LOWER_NAME_Count(entry, protections),
         one: _MODEL_LOWER_NAME_One(entry, protections),
+        authorizeRead: _MODEL_LOWER_NAME_AuthorizeRead(entry, protections),
         create: _MODEL_LOWER_NAME_Create(entry, protections),
         update: _MODEL_LOWER_NAME_Update(entry, protections),
         remove: _MODEL_LOWER_NAME_Remove(entry, protections),

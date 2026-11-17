@@ -78,8 +78,8 @@ async function main() {
     const { makeExecutableSchema } = require('@graphql-tools/schema')
     const { graphql } = require('graphql')
     const schema = makeExecutableSchema({ typeDefs: fs.readFileSync(path.join(root, 'gen/graphql.schema'), 'utf8'), resolvers })
-    const execute = async source => {
-        const result = await graphql({ schema, source, contextValue: { state: {} } })
+    const execute = async (source, actorId) => {
+        const result = await graphql({ schema, source, contextValue: { state: { user: actorId ? { id: actorId } : undefined } } })
         assert.equal(result.errors, undefined, JSON.stringify(result.errors))
         return result.data
     }
@@ -93,6 +93,17 @@ async function main() {
     assert.equal(login.login_v1.user.id, registered.register_v1.user.id)
     assert(login.login_v1.token)
     assert(await entry.models.user.findById(login.login_v1.user.id))
+    const privateOwner = registered.register_v1.user.id
+    const publicRecord = await entry.services.todo.create({ title: 'public parent', userId: privateOwner })
+    const nestedQuery = `{ Todo(id: "${publicRecord.id}") { user { email } } }`
+    for (const actorId of [undefined, user.id]) {
+        const denied = await graphql({ schema, source: nestedQuery,
+            contextValue: { state: { user: actorId ? { id: actorId } : undefined } } })
+        assert(denied.errors?.some(error => error.originalError?.status === 401))
+        assert(!JSON.stringify(denied.data).includes('graphql@example.com'))
+    }
+    const owned = await execute(nestedQuery, privateOwner)
+    assert.equal(owned.Todo.user.email, 'graphql@example.com')
     const role = await entry.services.userRole.create({ name: 'writer' })
     await entry.services.user.update({ rolesIds: [role.id] }, registered.register_v1.user.id)
     assert.deepEqual((await entry.models.user.findById(registered.register_v1.user.id)).roles, [role.id])
@@ -152,7 +163,7 @@ async function main() {
     assert(nested.sql.includes('_gmb_relation_0'))
     assert(!nested.sql.includes(injection))
     assert(nested.bindings.includes('Prague'))
-    console.log(`SQL smoke passed (${realDatabase ? provider : 'PostgreSQL emulation'}): migration lifecycle, CRUD, GraphQL CRUD/register/login/refresh, role relations, REST role authorization and MySQL query compilation.`)
+    console.log(`SQL smoke passed (${realDatabase ? provider : 'PostgreSQL emulation'}): migration lifecycle, CRUD, GraphQL CRUD/register/login/refresh, role relations, REST role authorization, nested GraphQL authorization and MySQL query compilation.`)
     fs.rmSync(root, { recursive: true, force: true })
 }
 main().catch(error => { console.error(error); console.error(`Generated backend retained for debugging: ${root}`); process.exitCode = 1 })
