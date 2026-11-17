@@ -1,12 +1,80 @@
-# GraphQL Monster Builder
+# CRUD Monster Builder
 
-Build server with CRUD with GraphQL and Rest API interface. With these features:
+CRUD Monster generates a backend from a simple schema: describe your models,
+their relations and access rules, and generate the basic CRUD operations, user
+management and API. Connect your own application code through hooks to add
+business logic and integrations while keeping the server regenerable as the
+schema evolves.
 
--   Generate server base on simple [schema file](https://github.com/miuan/graphql-monster-builder/blob/master/Schema.md)
--   Integrated authentication to secure models with [pre-defined rules](https://github.com/miuan/graphql-monster-builder/blob/master/Schema.md#model-permissions)
--   [Hooks](https://github.com/miuan/graphql-monster-builder/blob/master/Readme.md#hooks) to customize the server to your needs without breaking (re)build process
--   Integrated GraphQL documentation and Swagger for Rest API
--   Prepared [CRA templates](https://github.com/graphql-monster/cra-template-graphql-monster) for easy connect to React App (ES6 or [Typescipt](https://github.com/miuan/cra-template-graphql-monster-typescript))
+The project's goal is to bring this schema-driven workflow to Fastify and expand
+code generation beyond TypeScript to Rust and Go.
+
+CRUD Monster was previously named GraphQL Monster. The npm package and CLI are
+still named `graphql-monster-builder`; existing repository and template links
+below retain their original names.
+
+## Current capabilities
+
+-   Generate models, relations and basic create, read, update and delete operations from a [schema file](Schema.md).
+-   Expose generated operations through GraphQL and REST APIs, with GraphQL documentation and Swagger for REST.
+-   Provide [user registration, login and token refresh](Login.md), together with user roles.
+-   Apply [access rules](Schema.md#model-permissions) to individual model operations, including role-based permissions and user-specific filters.
+-   Connect custom code through [before and after hooks](#hooks) for business logic, validation and external integrations. Keep custom code outside `gen/` so it survives regeneration.
+-   Generate TypeScript servers with MongoDB by default, or [PostgreSQL and MySQL](Database.md) as database options.
+-   Connect React applications using the existing [CRA templates](https://github.com/graphql-monster/cra-template-graphql-monster) (ES6 or [TypeScript](https://github.com/miuan/cra-template-graphql-monster-typescript)).
+
+## Roadmap
+
+These are planned additions and improvements, not a list of completed features.
+
+-   **Fastify:** add a Fastify backend target for generated Node.js servers.
+-   **Rust:** add Rust code generation.
+-   **Go:** add Go code generation as another backend target.
+-   **Schema validation:** extend schema-defined validation with value ranges and custom rules, alongside required fields and uniqueness constraints.
+-   **Query consistency:** define consistent filtering, sorting and pagination behavior across REST, GraphQL and generated backend targets.
+-   **Database migrations:** make schema changes reviewable before applying them to existing databases, with explicit handling of changes that could lose data.
+-   **Regeneration:** make generator-owned files and custom-code extension points explicit, and help developers review changes when updating a generated server.
+-   **Backend consistency:** verify that TypeScript, Rust and Go interpret the same schema, relations and access rules consistently.
+-   **Generated tests:** expand generated CRUD and permission tests, and make custom hooks easy to test independently.
+-   **Deployment:** standardize environment configuration, structured logging, health endpoints and Docker-based startup across targets.
+
+The intended scope for these targets is the same schema-driven foundation:
+basic CRUD, model relations, user management, authentication, access permissions
+and extension points for custom application code. Fastify, Rust and Go support
+are planned; the current generated server uses the TypeScript stack described
+below.
+
+The foundational priorities are safe regeneration, database migration workflows
+and consistent behavior across backend targets. No release dates are committed
+for these roadmap items.
+
+## From schema to backend
+
+For example, define a task model with public read access and write access
+restricted to the `admin` role:
+
+```graphql
+@one("public") @all("public")
+@create("admin") @update("admin") @remove("admin")
+type Task @model {
+    title: String!
+    done: Boolean @default(false)
+}
+```
+
+The generated backend provides:
+
+-   A `Task` database model and basic create, read, update and delete operations.
+-   GraphQL and REST APIs for those operations, with API documentation.
+-   Permission checks that allow public reads and require the `admin` role for writes.
+-   User registration, login, token refresh and role support as part of the server's authentication infrastructure. Registering a user does not grant the `admin` role.
+-   Before and after hooks where your code can validate a task, apply business rules or call an external service.
+
+As the application grows, update the schema and regenerate the managed code.
+Keep application-specific logic outside `gen/`, and review changes to preserved
+server and configuration files as described in [Upgrading an existing generated server](#upgrading-an-existing-generated-server).
+The roadmap above extends this workflow to additional backend targets and
+stronger migration, testing and deployment support.
 
 # Requirements
 
@@ -90,7 +158,7 @@ type Todo @model {
 }
 ```
 
-Then run these command to actual create graphql-monster-server to directory with name `todo-server`
+Then run these commands to create a CRUD Monster server in the `todo-server` directory:
 
 ```
 npx graphql-monster-builder --backend todo.schema todo-server
@@ -155,14 +223,14 @@ The same can be acomplish with Rest API what is documented by Swagger
 
 For more about schema definition, please visit our documentation:
 
--   [Schema Description](https://github.com/miuan/graphql-monster-builder/blob/master/Schema.md) - How create a GraphQL Monster model.
+-   [Schema Description](https://github.com/miuan/graphql-monster-builder/blob/master/Schema.md) - How create a CRUD Monster model.
 -   [Model Relations](https://github.com/miuan/graphql-monster-builder/blob/master/Schema.md#relations) - Managing model relations.
 -   [Model Permissions](https://github.com/miuan/graphql-monster-builder/blob/master/Schema.md#model-permissions) – How secure particular CRUD operation of invidual model.
 -   [Obtain Token (Login)](https://github.com/miuan/graphql-monster-builder/blob/master/Login.md) – How login, register user and retrieve token to access protected models.
 
-[![Explain create modesls and CRUD with GraphQL Monster](https://img.youtube.com/vi/SE2313FeboY/0.jpg)](https://www.youtube.com/watch?v=SE2313FeboY)
+[![Create models and CRUD with CRUD Monster](https://img.youtube.com/vi/SE2313FeboY/0.jpg)](https://www.youtube.com/watch?v=SE2313FeboY)
 
-_You can check video how to create models on www.graphql.monster platform_
+_This video shows how to create models on the former GraphQL Monster platform (www.graphql.monster)._
 
 # Hooks
 
