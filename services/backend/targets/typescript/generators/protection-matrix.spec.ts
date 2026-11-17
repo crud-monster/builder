@@ -1,4 +1,4 @@
-import { getModelsFromSchema } from '../../parser/scan'
+import { getModelsFromSchema } from '../../../../parser/scan'
 import { generateProtections } from '../templates/extras'
 import { createGeneratedFixture } from './generator-fixtures'
 

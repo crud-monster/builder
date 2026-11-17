@@ -1,10 +1,10 @@
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
-import { getModelsFromSchema } from '../../parser/scan'
+import { getModelsFromSchema } from '../../../../parser/scan'
 import { createService } from './service'
 import { createResolver } from './resolvers'
-import { SchemaModel } from '../../common/types'
+import { SchemaModel } from '../../../../common/types'
 
 const lowerFirst = (name: string) => name[0].toLowerCase() + name.slice(1)
 
@@ -12,8 +12,8 @@ export const createGeneratedFixture = (model: SchemaModel, kind: 'service' | 're
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'gmb-unit-'))
     fs.mkdirSync(path.join(directory, 'models'))
     fs.mkdirSync(path.join(directory, 'modules'))
-    fs.writeFileSync(path.join(directory, 'extras.ts'), `export * from ${JSON.stringify(path.resolve('services/backend/templates/extras'))}`)
-    fs.writeFileSync(path.join(directory, 'api-utils.ts'), `export * from ${JSON.stringify(path.resolve('services/backend/templates/api/api-utils.t'))}`)
+    fs.writeFileSync(path.join(directory, 'extras.ts'), `export * from ${JSON.stringify(path.resolve('services/backend/targets/typescript/templates/extras'))}`)
+    fs.writeFileSync(path.join(directory, 'api-utils.ts'), `export * from ${JSON.stringify(path.resolve('services/backend/targets/typescript/templates/api/api-utils.t'))}`)
     const lower = lowerFirst(model.modelName)
     fs.writeFileSync(
         path.join(directory, 'models', model.modelName + '.ts'),

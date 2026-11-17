@@ -5,7 +5,7 @@ const prettier = require('eslint-config-prettier/flat')
 
 module.exports = [
     {
-        ignores: ['dist/**', 'node_modules/**', 'services/backend/templates/**/!(*.spec).{js,ts,tsx}', '**/__generated*/**', 'services/frontend/templates/**'],
+        ignores: ['dist/**', 'node_modules/**', 'services/backend/targets/typescript/templates/**/!(*.spec).{js,ts,tsx}', '**/__generated*/**', 'services/frontend/templates/**'],
     },
     js.configs.recommended,
     ...tseslint.configs.recommended,

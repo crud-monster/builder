@@ -1,81 +1,19 @@
-import { ensureGeneratedJwtSecret } from './jwt-config'
 import * as fs from 'fs'
-import { templateFileToText } from '../common/files'
-import { SchemaModel, SchemaModelType } from '../common/types'
 import { getModelsFromSchema } from '../parser/scan'
-import { BackendDirectory } from './backendDirectory'
-import { generateDataloaders } from './generators/dataloaders'
-import { generateEntry } from './generators/entry'
-import { generateIntegrationTests } from './generators/integration'
-import { generateMongoModelToFile } from './generators/model'
-import { createModelTypeFromModel } from './generators/model-types'
-import { generateResolverToFile } from './generators/resolvers'
-import { generateRestToFile } from './generators/rest'
-import { generateSchema } from './generators/schema'
-import { generateServiceToFile } from './generators/service'
+import { resolveBackendTarget } from './targets'
+import type { BackendConfig } from './targets/types'
 
-export const exportAs = async (name, from, base = '.', config = {}) => {
+export type { BackendConfig, BackendTarget, BackendTargetContext, BackendTargetName } from './targets/types'
+// Preserve the existing low-level TypeScript generation API.
+export { generateAll } from './targets/typescript/index'
+
+export const exportAs = async (name, from, base = '.', config: BackendConfig = {}) => {
     const importedSchema = fs.readFileSync(from, { encoding: 'utf8' })
     return exportAsFromString(name, importedSchema, base, config)
 }
 
-export const exportAsFromString = async (name, importedSchema, outDir = '.', config = {}) => {
+export const exportAsFromString = async (name, importedSchema, outDir = '.', config: BackendConfig = {}) => {
+    const target = resolveBackendTarget(config.target)
     const models = await getModelsFromSchema(importedSchema)
-
-    const backendDirectory = new BackendDirectory()
-    backendDirectory.init(name, outDir)
-    // TODO: in some times 'services/' is not used,
-    //       so not create directory what is not necessary
-    backendDirectory.prepareDirectory()
-    ensureGeneratedJwtSecret(outDir)
-
-    generateAll(backendDirectory, models, config)
-
-    backendDirectory.writeWithConfig('server', config)
-    backendDirectory.writeWithConfig('sendMail', config, 'services')
-    backendDirectory.writeWithConfig('passport', config, 'services')
-    backendDirectory.writeWithConfig('extras', config, 'gen')
-    backendDirectory.writeWithConfig('storage.t', config, 'gen')
-
-    backendDirectory.genWrite('jwt', templateFileToText('jwt.ts', null))
-
-    backendDirectory.genWrite(`schemaLoad`, templateFileToText(`schemaLoad.ts`, null))
-
-    backendDirectory.genWrite(`services/db`, templateFileToText(`db.ts`, null))
-    backendDirectory.genWrite(`source.schema`, importedSchema)
-    backendDirectory.write('tsconfig.json', templateFileToText('tsconfig.json', null))
-    backendDirectory.write('jest.config.js', templateFileToText('jest.config.js', null))
-    backendDirectory.write(`package.json`, templateFileToText(`package.json`, null))
-    backendDirectory.genWrite(`integration-tests/helper.ts`, templateFileToText(`integration-test-helper.ts`, null))
-
-    backendDirectory.genWrite('api-auth.ts', templateFileToText(`api/api-auth.t.ts`, null))
-    backendDirectory.genWrite('api-utils.ts', templateFileToText(`api/api-utils.t.ts`, null))
-}
-
-export function generateAll(backendDirectory: BackendDirectory, models: SchemaModel[], config: { integrationTestsEnable?: boolean }) {
-    generateSchema(backendDirectory, models)
-
-    let typesAll = `import { Document } from 'mongoose'\n`
-    for (const model of models) {
-        const notVirtualMembers = model.members.filter((member) => !member.isVirtual)
-        generateMongoModelToFile(backendDirectory, model, notVirtualMembers)
-        typesAll += createModelTypeFromModel(model, notVirtualMembers)
-
-        generateServiceToFile(backendDirectory, model)
-        if (model.type === SchemaModelType.MODEL) {
-            generateRestToFile(backendDirectory, model)
-            generateResolverToFile(backendDirectory, model)
-        }
-
-        console.log(`${model.modelName} generated with ${model.members.length} members`)
-    }
-
-    backendDirectory.genWrite(`model-types.ts`, typesAll)
-
-    generateDataloaders(backendDirectory, models)
-
-    // if (config.integrationTestsEnable)
-    generateIntegrationTests(backendDirectory, models)
-
-    generateEntry(backendDirectory, models)
+    await target.generate({ name, source: importedSchema, outDir, models, config })
 }
