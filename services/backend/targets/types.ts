@@ -1,4 +1,4 @@
-import type { SchemaModel } from '../../common/types'
+import type { SchemaModel } from '@common/types'
 import type { DatabaseProvider } from '../database/schema'
 
 export type BackendTargetName = 'typescript'

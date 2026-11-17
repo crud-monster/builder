@@ -1,20 +1,20 @@
 import { SchemaModel, SchemaModelRelation, SchemaModelType } from "@common/types"
-import { BackendDirectory } from "./backendDirectory"
+import { BackendDirectory } from "./targets/typescript/backendDirectory"
 import { generateAll } from "./build"
-import {generateMongoModelToFile} from './generators/model'
-import {createModelTypeFromModel} from './generators/model-types'
-import { generateSchema } from './generators/schema'
-import { generateResolverToFile } from './generators/resolvers'
-import { generateServiceToFile } from './generators/service'
-import { generateRestToFile } from './generators/rest'
+import {generateMongoModelToFile} from './targets/typescript/generators/model'
+import {createModelTypeFromModel} from './targets/typescript/generators/model-types'
+import { generateSchema } from './targets/typescript/generators/schema'
+import { generateResolverToFile } from './targets/typescript/generators/resolvers'
+import { generateServiceToFile } from './targets/typescript/generators/service'
+import { generateRestToFile } from './targets/typescript/generators/rest'
 import { SchemaType } from "mongoose"
 
-jest.mock('./generators/model')
-jest.mock('./generators/model-types')
-jest.mock('./generators/schema')
-jest.mock('./generators/resolvers')
-jest.mock('./generators/service')
-jest.mock('./generators/rest')
+jest.mock('./targets/typescript/generators/model')
+jest.mock('./targets/typescript/generators/model-types')
+jest.mock('./targets/typescript/generators/schema')
+jest.mock('./targets/typescript/generators/resolvers')
+jest.mock('./targets/typescript/generators/service')
+jest.mock('./targets/typescript/generators/rest')
 
   describe('generate:build', ()=>{
        

@@ -65,7 +65,20 @@ export function diffSchemas(previous: DatabaseSchema | undefined, next: Database
     return { changes, statements }
 }
 
-export function prepareMigration(outDir: string, schema: DatabaseSchema) {
+export interface MigrationRenderContext {
+    id: string
+    version: number
+    hash: string
+    schema: DatabaseSchema
+    plan: MigrationPlan
+}
+
+export interface MigrationFormat {
+    extension: string
+    render(context: MigrationRenderContext): string
+}
+
+export function prepareMigration(outDir: string, schema: DatabaseSchema, format: MigrationFormat) {
     const directory = path.join(outDir, 'database')
     const snapshotPath = path.join(directory, 'schema.snapshot.json')
     let previous: SchemaSnapshot | undefined
@@ -74,8 +87,8 @@ export function prepareMigration(outDir: string, schema: DatabaseSchema) {
         if (previous.format !== 1 || previous.schema?.format !== 1 || previous.hash !== schemaHash(previous.schema) || !Number.isInteger(previous.version) || previous.version < 1) throw new Error('Invalid database schema snapshot')
         if (previous.schema.provider !== schema.provider) throw new Error('Cannot change the database provider of an existing backend')
         const migrationDirectory = path.join(directory, 'migrations')
-        const history = fs.existsSync(migrationDirectory) ? fs.readdirSync(migrationDirectory).filter(f => /^\d{6}_[a-f0-9]{12}\.cjs$/.test(f)).sort() : []
-        const expectedLast = `${String(previous.version).padStart(6, '0')}_${previous.hash.slice(0, 12)}.cjs`
+        const history = fs.existsSync(migrationDirectory) ? fs.readdirSync(migrationDirectory).filter(f => /^\d{6}_[a-f0-9]{12}$/.test(f.slice(0, -(format.extension.length + 1))) && f.endsWith(`.${format.extension}`)).sort() : []
+        const expectedLast = `${String(previous.version).padStart(6, '0')}_${previous.hash.slice(0, 12)}.${format.extension}`
         if (history.length !== previous.version || history.some((f, i) => !f.startsWith(String(i + 1).padStart(6, '0') + '_')) || history[history.length - 1] !== expectedLast) {
             throw new Error('Incomplete database migration history. Restore the migrations matching the schema snapshot.')
         }
@@ -87,11 +100,11 @@ export function prepareMigration(outDir: string, schema: DatabaseSchema) {
     const snapshot: SchemaSnapshot = { format: 1, version, hash, schema }
     const plan = diffSchemas(previous?.schema, schema)
     const id = `${String(version).padStart(6, '0')}_${hash.slice(0, 12)}`
-    const migration = `// Generated database schema version ${version}. Review before applying.\n// Renames are represented as drop/add; edit this migration to preserve existing data.\nexports.schemaHash = ${JSON.stringify(hash)};\nexports.requiresReview = ${plan.changes.some(c => c.review)};\nexports.changes = ${JSON.stringify(plan.changes, null, 2)};\nexports.up = async (knex) => {\n    if (exports.requiresReview && process.env.GMB_ALLOW_DESTRUCTIVE_MIGRATIONS !== '1') {\n        throw new Error('Migration ${id} requires review. Review/edit it and set GMB_ALLOW_DESTRUCTIVE_MIGRATIONS=1 to apply.');\n    }\n    for (const sql of ${JSON.stringify(plan.statements, null, 2)}) await knex.raw(sql);\n};\nexports.down = async () => { throw new Error('Automatic rollback is not supported. Write and review a forward migration.'); };\nexports.config = { transaction: ${schema.provider === 'postgresql'} };\n`
+    const migration = format.render({ id, version, hash, schema, plan })
     return { snapshot, commit: () => {
         fs.mkdirSync(path.join(directory, 'migrations'), { recursive: true })
         fs.mkdirSync(path.join(directory, 'snapshots'), { recursive: true })
-        const migrationPath = path.join(directory, 'migrations', `${id}.cjs`)
+        const migrationPath = path.join(directory, 'migrations', `${id}.${format.extension}`)
         const historyPath = path.join(directory, 'snapshots', `${id}.json`)
         // Never overwrite history, including after a partially failed generation.
         for (const [file, contents] of [[migrationPath, migration], [historyPath, JSON.stringify(snapshot, null, 2) + '\n']]) {

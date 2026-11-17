@@ -1,4 +1,4 @@
-import { templateFileToText } from '@common/files'
+import { templateFileToText } from '../files'
 import { SchemaModel, SchemaModelMember, SchemaModelRelationType, SchemaModelType } from '@common/types'
 import { firstToLower, getOnlyOneRelatedMember } from '@common/utils'
 import logger from '@log'
