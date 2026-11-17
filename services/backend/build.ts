@@ -5,7 +5,7 @@ import type { BackendConfig } from './targets/types'
 
 export type { BackendConfig, BackendTarget, BackendTargetContext, BackendTargetName } from './targets/types'
 // Preserve the existing low-level TypeScript generation API.
-export { generateAll } from './targets/typescript'
+export { generateAll } from './targets/typescript/index'
 
 export const exportAs = async (name, from, base = '.', config: BackendConfig = {}) => {
     const importedSchema = fs.readFileSync(from, { encoding: 'utf8' })

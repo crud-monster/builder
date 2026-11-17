@@ -1,5 +1,5 @@
 import type { BackendTarget, BackendTargetName } from './types'
-import { typescriptTarget } from './typescript'
+import { typescriptTarget } from './typescript/index'
 
 const targets: Record<BackendTargetName, BackendTarget> = {
     typescript: typescriptTarget,

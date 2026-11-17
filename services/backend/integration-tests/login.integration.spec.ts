@@ -1,5 +1,5 @@
 import * as jwt from 'jsonwebtoken'
-import { genPasswordAndTokens, generateTokenJWT } from '../templates/jwt'
+import { genPasswordAndTokens, generateTokenJWT } from '../targets/typescript/templates/jwt'
 import * as request from 'supertest'
 import { isExportDeclaration } from 'typescript'
 import { disconnectFromServer, generateAndRunServerFromSchema, loadGraphQL } from './utils'

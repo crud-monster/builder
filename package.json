@@ -9,9 +9,10 @@
   "scripts": {
     "prepublish": "npm run build",
     "preinstall": "npm run build",
+    "prebuild": "node -e \"require('fs').rmSync('dist', { recursive: true, force: true })\"",
     "build": "tsc index.ts --target es2020 --module commonjs --skipLibCheck --outDir dist/",
     "postbuild": "npm run copy:templates && npm run copy:package",
-    "copy:templates": "copyfiles -u ./services/backend/templates/* ./services/backend/templates/*/** ./dist/",
+    "copy:templates": "copyfiles -u ./services/backend/targets/typescript/templates/* ./services/backend/targets/typescript/templates/*/** ./dist/",
     "copy:package": "copyfiles ./package.json ./dist/",
     "build:todo": "npx ts-node index.ts -bd -d ./examples/todo.schema server3",
     "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js",

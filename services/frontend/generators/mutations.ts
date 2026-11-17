@@ -1,4 +1,4 @@
-import { frontendTemplateToText, templateFileToText } from '../../common/files'
+import { frontendTemplateToText } from '../../common/files'
 import { SchemaModel, SchemaModelMember, SchemaModelRelationType } from '../../common/types'
 import { FrontendDirectory } from '../frontendDirectory'
 import * as _ from 'lodash'

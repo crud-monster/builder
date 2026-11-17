@@ -1,6 +1,7 @@
 import path = require('path')
-import * as files from '../common/files'
-import { StructureBackend } from '../common/types'
+import * as files from '../../../common/files'
+import { templateFileToText } from './files'
+import { StructureBackend } from '../../../common/types'
 
 export const BACKEND_STRUCTURE = {
     schema: {
@@ -95,7 +96,7 @@ export class BackendDirectory implements BackendStructureOperatorWrite {
         const templateFileName = myConfig?.template || `${templateName}.ts`
         const outputFileName = myConfig?.output || (outDir ? `${outDir}/${file}` : file)
 
-        const data = files.templateFileToText(templateFileName, myConfig?.config)
+        const data = templateFileToText(templateFileName, myConfig?.config)
         return files.writeToFile(this.structure.schema, outputFileName, data)
     }
 
