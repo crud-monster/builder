@@ -99,6 +99,29 @@ async function main() {
     assert(await entry.models.userRole.exists({ name: 'writer', users: registered.register_v1.user.id }))
     const populated = await entry.models.user.findById(registered.register_v1.user.id).populate('roles')
     assert.equal(populated.roles[0].name, 'writer')
+    // Exercise the emitted REST handler against persisted roles, including inverse relations.
+    const routes = {}
+    const router = Object.fromEntries(['get', 'post', 'put', 'delete'].map(method => [method,
+        (url, handler) => { routes[method + ' ' + url] = handler }]))
+    require(path.join(root, 'gen/api/User.ts')).connectUserApi(router, entry)
+    const userId = registered.register_v1.user.id
+    const context = (actorId, body) => ({ params: { id: userId }, request: { body },
+        state: { user: { id: actorId, roles: ['admin'] } }, query: {} })
+    const adminRole = await entry.services.userRole.create({ name: 'admin' })
+    for (const payload of [{ rolesIds: [adminRole.id] }, { rolesIds: [] }, { roles: null }]) {
+        await assert.rejects(routes['put /user/:id'](context(userId, payload)), error => error.status === 401)
+    }
+    await assert.rejects(routes['put /user/:id'](context(userId, { $set: { roles: [adminRole.id] } })), error => error.status === 400)
+    assert.deepEqual((await entry.models.user.findById(userId)).roles, [role.id])
+    assert(await entry.models.userRole.exists({ name: 'writer', users: userId }))
+    assert.equal(await entry.models.userRole.exists({ name: 'admin', users: userId }), null)
+    const adminUser = await entry.models.user.create({ email: 'role-admin@example.com',
+        __password: await require(path.join(root, 'gen/extras.ts')).generateHash('role-admin-test-password') })
+    await entry.services.user.update({ rolesIds: [adminRole.id] }, adminUser.id)
+    const editorRole = await entry.services.userRole.create({ name: 'editor' })
+    await routes['put /user/:id'](context(adminUser.id, { rolesIds: [role.id, editorRole.id] }))
+    assert.deepEqual((await entry.models.user.findById(userId)).roles, [role.id, editorRole.id])
+    assert(await entry.models.userRole.exists({ name: 'editor', users: userId }))
     const refreshed = await execute(`mutation { refreshToken_v1(userId: "${registered.register_v1.user.id}", token: "${login.login_v1.token}", refreshToken: "${(await entry.models.user.findById(registered.register_v1.user.id)).__refreshToken}") { token refreshToken } }`)
     assert(refreshed.refreshToken_v1.refreshToken)
     const before = fs.readFileSync(path.join(root, 'database/migrations', fs.readdirSync(path.join(root, 'database/migrations'))[0]), 'utf8')
@@ -129,7 +152,7 @@ async function main() {
     assert(nested.sql.includes('_gmb_relation_0'))
     assert(!nested.sql.includes(injection))
     assert(nested.bindings.includes('Prague'))
-    console.log(`SQL smoke passed (${realDatabase ? provider : 'PostgreSQL emulation'}): migration lifecycle, CRUD, GraphQL CRUD/register/login/refresh, role relations and MySQL query compilation.`)
+    console.log(`SQL smoke passed (${realDatabase ? provider : 'PostgreSQL emulation'}): migration lifecycle, CRUD, GraphQL CRUD/register/login/refresh, role relations, REST role authorization and MySQL query compilation.`)
     fs.rmSync(root, { recursive: true, force: true })
 }
 main().catch(error => { console.error(error); console.error(`Generated backend retained for debugging: ${root}`); process.exitCode = 1 })

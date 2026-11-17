@@ -1,5 +1,5 @@
 import * as JSON5 from 'json5'
-import { apiMiddleware, userIsOwner, userHaveRoles, paramHaveFilter, RequestError, UnauthorizedError } from '../api-utils'
+import { apiMiddleware, assertUserRoleMutationAllowed, userIsOwner, userHaveRoles, paramHaveFilter, RequestError, UnauthorizedError } from '../api-utils'
 
 /**
  * _SWAGGER_
