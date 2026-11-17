@@ -47,7 +47,7 @@ describe('database snapshots and migrations', () => {
         expect(manifest.dependencies).not.toHaveProperty('mongoose')
         expect(manifest.dependencies.knex).toBeDefined()
         expect(manifest.dependencies[provider === 'mysql' ? 'mysql2' : 'pg']).toBeDefined()
-        expect(manifest.scripts['db:migrate']).toBe('node gen/migrate.cjs up')
+        expect(manifest.scripts['db:migrate']).toBe('ts-node gen/sql/migrate.ts up')
         expect(fs.readFileSync(path.join(directory, 'gen/services/Todo.ts'), 'utf8')).toContain('transactionalServices')
         expect(fs.readFileSync(path.join(directory, 'gen/models/Todo.ts'), 'utf8')).not.toContain('mongoose')
     })

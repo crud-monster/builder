@@ -1,5 +1,7 @@
-require('dotenv-flow').config({ default_node_env: 'development' })
-const database = require('./sql/database.cjs')
+const dotenvFlow: { config(options: { default_node_env: string }): unknown } = require('dotenv-flow')
+import * as database from './database'
+
+dotenvFlow.config({ default_node_env: 'development' })
 
 database.migrate(process.argv[2] || 'up')
     .then(result => console.log(JSON.stringify(result, null, 2)))
