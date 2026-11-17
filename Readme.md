@@ -161,6 +161,20 @@ The generated Jest configuration registers the jest-extended 7 matchers explicit
 The builder also targets patched `minimatch` versions for ESLint and the TypeScript
 parser using npm overrides and Yarn resolutions until those tools update their dependencies.
 
+## Experimental Rust target
+
+The first Rust target generates a compilable Cargo project and data-record
+structs from the shared schema. It does not yet implement an HTTP/GraphQL
+server, database persistence or authorization. See [Rust target](Rust.md) for
+supported types, regeneration behavior and checks.
+
+```sh
+npm run build
+node bin/cli.js examples/todo.schema ../todo-rust --target rust
+cd ../todo-rust
+cargo check
+```
+
 # Usage
 
 ```

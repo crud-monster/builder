@@ -46,8 +46,8 @@ describe('backend targets', () => {
         const marker = path.join(directory, 'gen', 'keep.txt')
         fs.mkdirSync(path.dirname(marker))
         fs.writeFileSync(marker, 'keep')
-        const config = { target: 'rust' } as unknown as BackendConfig
-        await expect(exportAsFromString('project', 'invalid schema', directory, config)).rejects.toThrow('Unsupported target: rust')
+        const config = { target: 'unknown' } as unknown as BackendConfig
+        await expect(exportAsFromString('project', 'invalid schema', directory, config)).rejects.toThrow('Unsupported target: unknown')
         expect(fs.readFileSync(marker, 'utf8')).toBe('keep')
         expect(fs.readdirSync(directory)).toEqual(['gen'])
     })
