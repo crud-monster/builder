@@ -5,13 +5,13 @@ import logger from '@log'
 import { BackendDirectory } from '../backendDirectory'
 const log = logger.getLogger('dataloaders')
 
-export const generateDataloaders = async (backendDirectory: BackendDirectory, models: SchemaModel[]) => {
+export const generateDataloaders = async (backendDirectory: BackendDirectory, models: SchemaModel[], ordered = false) => {
     log.info('generate Dataloaders for all models')
-    const body = generateDataloadersWorker(models)
+    const body = generateDataloadersWorker(models, ordered)
     backendDirectory.genWrite(`dataloaders`, body)
 }
 
-export const generateDataloadersWorker = (models: SchemaModel[]): string => {
+export const generateDataloadersWorker = (models: SchemaModel[], ordered = false): string => {
     let body = `
   import * as DataLoader from 'dataloader';
  
@@ -104,7 +104,8 @@ export const generateDataloadersWorker = (models: SchemaModel[]): string => {
     // tslint:disable-next-line:ter-arrow-parens
     return processBatches(keys, async (batchKeys) => {
       const data = await service.find({_id: {$in: keys}})
-      return data.map(d=>{
+      return ${ordered ? 'batchKeys.map(key => data.find(row => String(row._id) === String(key)))' : 'data'}.map(d=>{
+        if (!d) return null
         d.id = d._id
         return d
       })
