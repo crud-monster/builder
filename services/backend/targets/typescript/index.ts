@@ -63,6 +63,7 @@ async function generateTypescript(name: string, importedSchema: string, outDir: 
 
     backendDirectory.genWrite('api-auth.ts', templateFileToText(`api/api-auth.t.ts`, null))
     backendDirectory.genWrite('api-utils.ts', templateFileToText(`api/api-utils.t.ts`, null))
+    backendDirectory.genWrite('http-context.ts', templateFileToText('http-context.ts', null))
     if (migration) {
         generateSqlRuntime(backendDirectory)
         migration.commit()

@@ -50,7 +50,7 @@ describe('i:login', () => {
 
     it('health check', async () => {
         // console.log(server)
-        const response = await request(server.koa).get('/health')
+        const response = await request(server.httpServer).get('/health')
         expect(response.status).toBe(200)
         expect(response.body).toHaveProperty('health', 'ok')
     })
@@ -59,7 +59,7 @@ describe('i:login', () => {
             const user = await userModel.findOne({ email: 'admin@admin.test' })
             const tokens: any = { id: user.id, roles: [] }
             genPasswordAndTokens(tokens)
-            const valid = await request(server.koa).get('/auth/me').set('Authorization', `Bearer ${tokens.__token}`)
+            const valid = await request(server.httpServer).get('/auth/me').set('Authorization', `Bearer ${tokens.__token}`)
             expect(valid.status).toBe(200)
             expect(valid.body.me.id).toBe(user.id)
 
@@ -73,7 +73,7 @@ describe('i:login', () => {
                 jwt.sign(payload, process.env.JWT_TOKEN_SECRET),
             ]
             for (const token of invalidTokens) {
-                const res = await request(server.koa).get('/auth/me').set('Authorization', `Bearer ${token}`)
+                const res = await request(server.httpServer).get('/auth/me').set('Authorization', `Bearer ${token}`)
                 expect(res.body).not.toHaveProperty('me')
                 expect(res.body).toHaveProperty('errors')
             }
@@ -81,7 +81,7 @@ describe('i:login', () => {
 
         it('login fail', async () => {
             // console.log(server)
-            const res = await request(server.koa).post('/auth/login_v1').send({
+            const res = await request(server.httpServer).post('/auth/login_v1').send({
                 email: 'admin@admin.test',
                 password: '123',
             })
@@ -90,7 +90,7 @@ describe('i:login', () => {
         })
 
         it('admin login', async () => {
-            const res = await request(server.koa).post('/auth/login_v1?fields=token,refreshToken,user.id&alias=login').send({
+            const res = await request(server.httpServer).post('/auth/login_v1?fields=token,refreshToken,user.id&alias=login').send({
                 email: 'admin@admin.test',
                 password: 'admin@admin.test',
             })
@@ -144,7 +144,7 @@ describe('i:login', () => {
         })
 
         it('register', async () => {
-            const res = await request(server.koa).post('/auth/register_v1?fields=token,refreshToken,user.id&alias=login').send({
+            const res = await request(server.httpServer).post('/auth/register_v1?fields=token,refreshToken,user.id&alias=login').send({
                 email: 'createdUser@createdUser43yhlzcf.com',
                 password: 'user1',
             })
@@ -158,7 +158,7 @@ describe('i:login', () => {
             // expect(res).toHaveProperty('body.login.user.roles', [{ name: 'admin' }])
             expect(res).not.toHaveProperty('errors')
 
-            const resl = await request(server.koa).post('/auth/login_v1?fields=token,refreshToken,user.id&alias=login').send({
+            const resl = await request(server.httpServer).post('/auth/login_v1?fields=token,refreshToken,user.id&alias=login').send({
                 email: 'createdUser@createdUser43yhlzcf.com',
                 password: 'user1',
             })
@@ -471,7 +471,7 @@ describe('i:login', () => {
 
         it('health check', async () => {
             // console.log(server)
-            const response = await request(server2.koa).get('/health')
+            const response = await request(server2.httpServer).get('/health')
             expect(response.status).toBe(200)
             expect(response.body).toHaveProperty('health', 'ok')
         })

@@ -37,7 +37,17 @@ describe('storage integration', () => {
 
     afterAll(async () => {
         await disconnectFromServer(server)
-        fs.rmdirSync('./file-storage/', { recursive: true })
+        fs.rmSync('./file-storage/', { recursive: true, force: true })
+    })
+
+    it('rejects oversized uploads without creating file metadata', async () => {
+        const count = await server.entry.models.file.countDocuments({})
+        const response = await request(server.httpServer)
+            .post('/upload')
+            .set('Authorization', `Bearer ${res.data.login_v1.token}`)
+            .attach('file', Buffer.alloc(20 * 1024 * 1024 + 1), { filename: 'too-large.bin' })
+        expect(response.status).toBe(413)
+        expect(await server.entry.models.file.countDocuments({})).toBe(count)
     })
 
     it('createFile', async () => {
@@ -114,25 +124,26 @@ describe('storage integration', () => {
 
         const uploadJSON = oneFileResponse.data.File
         // download with public key
-        const downloadRequestPublicKey = await request(server.koa).get('/download/' + uploadJSON.publicKey)
+        const downloadRequestPublicKey = await request(server.httpServer).get('/download/' + uploadJSON.publicKey)
+        expect(downloadRequestPublicKey.body).not.toHaveProperty('errors')
         expect(downloadRequestPublicKey).toHaveProperty('ok', true)
         expect(downloadRequestPublicKey).toHaveProperty('text', 'File/data/fgh47mk')
-        expect(downloadRequestPublicKey).toHaveProperty('headers.content-disposition', 'attachment; filename=File/name/xid52tc')
+        expect(downloadRequestPublicKey).toHaveProperty('headers.content-disposition', "attachment; filename*=UTF-8''File%2Fname%2Fxid52tc")
         expect(downloadRequestPublicKey).toHaveProperty('headers.content-type', 'text/plain')
         expect(downloadRequestPublicKey).toHaveProperty('headers.content-length', `${uploadJSON.size}`)
 
         // download with id WITH token
-        const downloadRequestIdToken = await request(server.koa)
+        const downloadRequestIdToken = await request(server.httpServer)
             .get('/download/' + uploadJSON.id)
             .set('Authorization', 'Bearer ' + token)
         expect(downloadRequestIdToken).toHaveProperty('ok', true)
         expect(downloadRequestIdToken).toHaveProperty('text', 'File/data/fgh47mk')
-        expect(downloadRequestIdToken).toHaveProperty('headers.content-disposition', 'attachment; filename=File/name/xid52tc')
+        expect(downloadRequestIdToken).toHaveProperty('headers.content-disposition', "attachment; filename*=UTF-8''File%2Fname%2Fxid52tc")
         expect(downloadRequestIdToken).toHaveProperty('headers.content-type', 'text/plain')
         expect(downloadRequestIdToken).toHaveProperty('headers.content-length', `${uploadJSON.size}`)
 
         // download with id without token
-        const downloadRequestId = await request(server.koa).get('/download/' + uploadJSON.id)
+        const downloadRequestId = await request(server.httpServer).get('/download/' + uploadJSON.id)
         expect(downloadRequestId).toHaveProperty('ok', false)
         expect(downloadRequestId.body).toEqual(expect.objectContaining({ errors: expect.arrayContaining([expect.objectContaining({ message: 'Unauthorized' })]) }))
 
@@ -250,7 +261,7 @@ describe('storage integration', () => {
     })
 
     it('stores multiple files uploaded under the same multipart field', async () => {
-        const response = await request(server.koa)
+        const response = await request(server.httpServer)
             .post('/upload')
             .set('Authorization', 'Bearer ' + res.data.login_v1.token)
             .attach('files', './package.json', { filename: 'multipart-a.json', contentType: 'application/json' })
@@ -266,7 +277,7 @@ describe('storage integration', () => {
 
     it('upload file', async () => {
         const token = res.data.login_v1.token
-        const uploadRequest = await request(server.koa)
+        const uploadRequest = await request(server.httpServer)
             .post('/upload')
             .set('Authorization', 'Bearer ' + token)
             .attach('name', './package.json')
@@ -303,25 +314,26 @@ describe('storage integration', () => {
         expect(oneFileResponse).toHaveProperty('data.File.data', packageJson)
 
         // download with public key
-        const downloadRequestPublicKey = await request(server.koa).get('/download/' + uploadJSON.publicKey)
+        const downloadRequestPublicKey = await request(server.httpServer).get('/download/' + uploadJSON.publicKey)
+        expect(downloadRequestPublicKey.body).not.toHaveProperty('errors')
         expect(downloadRequestPublicKey).toHaveProperty('ok', true)
         expect(downloadRequestPublicKey).toHaveProperty('text', packageJson)
-        expect(downloadRequestPublicKey).toHaveProperty('headers.content-disposition', 'attachment; filename=package.json')
+        expect(downloadRequestPublicKey).toHaveProperty('headers.content-disposition', "attachment; filename*=UTF-8''package.json")
         expect(downloadRequestPublicKey).toHaveProperty('headers.content-type', 'application/json')
         expect(downloadRequestPublicKey).toHaveProperty('headers.content-length', `${uploadJSON.size}`)
 
         // download with id WITH token
-        const downloadRequestIdToken = await request(server.koa)
+        const downloadRequestIdToken = await request(server.httpServer)
             .get('/download/' + uploadJSON.id)
             .set('Authorization', 'Bearer ' + token)
         expect(downloadRequestIdToken).toHaveProperty('ok', true)
         expect(downloadRequestIdToken).toHaveProperty('text', packageJson)
-        expect(downloadRequestIdToken).toHaveProperty('headers.content-disposition', 'attachment; filename=package.json')
+        expect(downloadRequestIdToken).toHaveProperty('headers.content-disposition', "attachment; filename*=UTF-8''package.json")
         expect(downloadRequestIdToken).toHaveProperty('headers.content-type', 'application/json')
         expect(downloadRequestIdToken).toHaveProperty('headers.content-length', `${uploadJSON.size}`)
 
         // download with id without token
-        const downloadRequestId = await request(server.koa).get('/download/' + uploadJSON.id)
+        const downloadRequestId = await request(server.httpServer).get('/download/' + uploadJSON.id)
         expect(downloadRequestId).toHaveProperty('ok', false)
         expect(downloadRequestId.body).toEqual(expect.objectContaining({ errors: expect.arrayContaining([expect.objectContaining({ message: 'Unauthorized' })]) }))
     })

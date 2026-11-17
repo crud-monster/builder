@@ -6,8 +6,8 @@ management and API. Connect your own application code through hooks to add
 business logic and integrations while keeping the server regenerable as the
 schema evolves.
 
-The project's goal is to bring this schema-driven workflow to Fastify and expand
-code generation beyond TypeScript to Rust and Go.
+Generated TypeScript backends use Fastify. The project's goal is to expand this
+schema-driven workflow beyond TypeScript to Rust and Go.
 
 CRUD Monster was previously named GraphQL Monster. The npm package and CLI are
 still named `graphql-monster-builder`; existing repository and template links
@@ -27,7 +27,6 @@ below retain their original names.
 
 These are planned additions and improvements, not a list of completed features.
 
--   **Fastify:** add a Fastify backend target for generated Node.js servers.
 -   **Rust:** add Rust code generation.
 -   **Go:** add Go code generation as another backend target.
 -   **Legacy integration:** support [gradual migration from existing applications](Architecture.md) through external identity, authorization and data providers, with modules mounted alongside the original system.
@@ -41,9 +40,8 @@ These are planned additions and improvements, not a list of completed features.
 
 The intended scope for these targets is the same schema-driven foundation:
 basic CRUD, model relations, user management, authentication, access permissions
-and extension points for custom application code. Fastify, Rust and Go support
-are planned; the current generated server uses the TypeScript stack described
-below.
+and extension points for custom application code. Rust and Go support are planned;
+the current generated server uses the TypeScript and Fastify stack described below.
 
 The foundational priorities are safe regeneration, database migration workflows
 and consistent behavior across backend targets. No release dates are committed
@@ -80,7 +78,32 @@ stronger migration, testing and deployment support.
 # Requirements
 
 Node.js 22.18+ (22.x), or Node.js 24.11+ (recommended) and a running MongoDB instance.
-Generated servers use Apollo Server 5, GraphQL 16, Mongoose 9 and Koa 3.
+Generated servers use Fastify 5, Apollo Server 5, GraphQL 16 and Mongoose 9.
+
+## Migrating a generated Koa server to Fastify
+
+Generate into a fresh directory and merge the new `server.ts`,
+`services/passport.ts` and `package.json` into your application before regenerating
+`gen/`. Existing files outside `gen/` are preserved, so regeneration alone does
+not replace an existing Koa server. Reinstall dependencies using the new manifest
+and update its lockfile to remove Koa packages and install the Fastify plugins.
+
+Custom HTTP routes now use Fastify request/reply handlers and plugins. Generated
+REST and GraphQL hooks retain `ctx.state.user`, `ctx.request`, `ctx.params` and
+`ctx.query`; `ctx.request` is now a Fastify request, and `ctx.reply` exposes the
+Fastify reply. Koa middleware and other Koa-specific context APIs need adapting.
+
+OAuth callbacks are `/auth/github/callback`, `/auth/google/callback` and
+`/auth/facebook/callback`; update the callback URLs registered with each provider.
+The exported connection result now contains `app` (Fastify) and `httpServer`
+(the Node.js server). Close the generated server with `await server.app.close()`
+to stop HTTP, Apollo and database resources together.
+
+Uploads accept up to 10 files of 20 MiB each. Adjust the multipart plugin limits
+in `server.ts` for your application.
+
+Swagger UI is pinned to 6.1.0 to keep its static-file dependencies compatible with
+the project's Jest 29 test setup.
 
 ## Upgrading an existing generated server
 
@@ -284,7 +307,7 @@ _Note: what is in `gen/` is have fully on control the builder generator, so what
 
 -   [NodeJS](https://nodejs.org/en/)
 -   [Apollo](https://www.apollographql.com)
--   [koa](https://koajs.com/)
+-   [Fastify](https://fastify.dev/)
 -   [MongoDB](https://www.mongodb.com/)
 -   [Swagger](https://swagger.io/)
 -   [Jest](https://jestjs.io/)

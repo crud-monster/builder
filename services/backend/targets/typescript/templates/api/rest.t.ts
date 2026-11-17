@@ -1,4 +1,5 @@
 import * as JSON5 from 'json5'
+import { withContext } from '../http-context'
 import { apiMiddleware, userIsOwner, userHaveRoles, paramHaveFilter, RequestError, UnauthorizedError } from '../api-utils'
 
 /**
@@ -139,10 +140,10 @@ const count_MODEL_NAME_ = (entry) => async (ctx) => {
 }
 
 export function connect_MODEL_NAME_Api(apiRouter, entry) {
-    apiRouter.post('/_MODEL_LOWER_NAME_', create_MODEL_NAME_(entry))
-    apiRouter.put('/_MODEL_LOWER_NAME_/:id', update_MODEL_NAME_(entry))
-    apiRouter.delete('/_MODEL_LOWER_NAME_/:id', remove_MODEL_NAME_(entry))
-    apiRouter.get('/_MODEL_LOWER_NAME_/all', all_MODEL_NAME_(entry))
-    apiRouter.get('/_MODEL_LOWER_NAME_/count', count_MODEL_NAME_(entry))
-    apiRouter.get('/_MODEL_LOWER_NAME_/:id', one_MODEL_NAME_(entry))
+    apiRouter.post('/_MODEL_LOWER_NAME_', withContext(create_MODEL_NAME_(entry)))
+    apiRouter.put('/_MODEL_LOWER_NAME_/:id', withContext(update_MODEL_NAME_(entry)))
+    apiRouter.delete('/_MODEL_LOWER_NAME_/:id', withContext(remove_MODEL_NAME_(entry)))
+    apiRouter.get('/_MODEL_LOWER_NAME_/all', withContext(all_MODEL_NAME_(entry)))
+    apiRouter.get('/_MODEL_LOWER_NAME_/count', withContext(count_MODEL_NAME_(entry)))
+    apiRouter.get('/_MODEL_LOWER_NAME_/:id', withContext(one_MODEL_NAME_(entry)))
 }

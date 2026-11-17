@@ -145,8 +145,8 @@ export const generateDataloadersForResolver = (model: SchemaModel) => {
         const lower = firstToLower(member.relation.relatedModel.modelName)
         const many = member.isArray
         body += `
-    ${memberName}: async (${lower}Model, data, koaContext) => {
-      return entry.dataloaders['${lower}'](koaContext, ${lower}Model.${memberName},${many})
+    ${memberName}: async (${lower}Model, data, context) => {
+      return entry.dataloaders['${lower}'](context, ${lower}Model.${memberName},${many})
     },`
 
         if (member.relation?.linkNames) {
@@ -154,11 +154,11 @@ export const generateDataloadersForResolver = (model: SchemaModel) => {
             const meLower = firstToLower(model.modelName)
             const meMany = member.relation.relatedMember.isArray
             linkAndUnlink += `,${firstToUpper(linkNames.linkName)}Result:{
-                ${linkNames.res1}: async (${meLower}Model, data, koaContext) => {
-                    return  entry.dataloaders['${meLower}'](koaContext, ${meLower}Model.${linkNames.param1},${meMany})
+                ${linkNames.res1}: async (${meLower}Model, data, context) => {
+                    return  entry.dataloaders['${meLower}'](context, ${meLower}Model.${linkNames.param1},${meMany})
                   },
-                ${linkNames.res2}: async (${lower}Model, data, koaContext) => {
-                    return  entry.dataloaders['${lower}'](koaContext, ${lower}Model.${linkNames.param2},${many})
+                ${linkNames.res2}: async (${lower}Model, data, context) => {
+                    return  entry.dataloaders['${lower}'](context, ${lower}Model.${linkNames.param2},${many})
                   }
             }
     `
@@ -166,8 +166,8 @@ export const generateDataloadersForResolver = (model: SchemaModel) => {
     }
     if (model.modelName == 'File') {
         body += `
-    data: async (fileModel, data, koaContext) => {
-      return entry.storage.loadDataFromFile(fileModel, data, koaContext)
+    data: async (fileModel, data, context) => {
+      return entry.storage.loadDataFromFile(fileModel, data, context)
     },`
     }
     body += `    

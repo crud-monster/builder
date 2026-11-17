@@ -65,11 +65,11 @@ describe('entry', () => {
         const addings = generateDataloadersForResolver(modelAnaconda)
         expect(addings).toMatchInlineSnapshot(`
             ",modelAnacondaModel: {
-                memberAnaconda: async (modelZeroModel, data, koaContext) => {
-                  return entry.dataloaders['modelZero'](koaContext, modelZeroModel.memberAnaconda,true)
+                memberAnaconda: async (modelZeroModel, data, context) => {
+                  return entry.dataloaders['modelZero'](context, modelZeroModel.memberAnaconda,true)
                 },
-                _memberAnacondaYstem: async (modelZeroModel, data, koaContext) => {
-                  return entry.dataloaders['modelZero'](koaContext, modelZeroModel._memberAnacondaYstem,true)
+                _memberAnacondaYstem: async (modelZeroModel, data, context) => {
+                  return entry.dataloaders['modelZero'](context, modelZeroModel._memberAnacondaYstem,true)
                 },    
             }
 

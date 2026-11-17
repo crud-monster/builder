@@ -9,7 +9,7 @@ export async function connectToServer() {
         server = await module.connectionPromise
 
         const post = async (url, body: { query: string; variables: any }, token?: string) => {
-            const req = request(server.koa).post(url).set('Content-Type', 'application/json').set('Accept', 'application/json')
+            const req = request(server.httpServer).post(url).set('Content-Type', 'application/json').set('Accept', 'application/json')
 
             if (token) {
                 req.set('Authorization', `Bearer ${token}`)
@@ -19,7 +19,7 @@ export async function connectToServer() {
         }
 
         const put = async (url, body: { query: string; variables: any }, token?: string) => {
-            const req = request(server.koa).put(url).set('Content-Type', 'application/json').set('Accept', 'application/json')
+            const req = request(server.httpServer).put(url).set('Content-Type', 'application/json').set('Accept', 'application/json')
 
             if (token) {
                 req.set('Authorization', `Bearer ${token}`)
@@ -29,7 +29,7 @@ export async function connectToServer() {
         }
 
         const del = async (url, body: { query: string; variables: any }, token?: string) => {
-            const req = request(server.koa).delete(url).set('Content-Type', 'application/json').set('Accept', 'application/json')
+            const req = request(server.httpServer).delete(url).set('Content-Type', 'application/json').set('Accept', 'application/json')
 
             if (token) {
                 req.set('Authorization', `Bearer ${token}`)
@@ -39,7 +39,7 @@ export async function connectToServer() {
         }
 
         const get = async (url, token?: string) => {
-            const req = request(server.koa).get(url).set('Content-Type', 'application/json').set('Accept', 'application/json')
+            const req = request(server.httpServer).get(url).set('Content-Type', 'application/json').set('Accept', 'application/json')
 
             if (token) {
                 req.set('Authorization', `Bearer ${token}`)
@@ -73,8 +73,6 @@ export async function connectToServer() {
 }
 
 export async function disconnectFromServer(server: any) {
-    await server.apollo.stop()
-    await new Promise<void>((resolve, reject) => server.koa.close(error => error ? reject(error) : resolve()))
-    await server.mongoDB.close()
+    await server.app.close()
     console.log('server closed!')
 }
