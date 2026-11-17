@@ -35,7 +35,7 @@ const parsedArguments = yargs
         default: 'typescript',
     })
     .option('database', {
-        description: 'Database (default: mongodb for typescript, postgresql for rust)',
+        description: 'Database (default: mongodb; Rust currently supports only mongodb)',
         choices: ['mongodb', 'postgresql', 'mysql'],
     })
     .help()

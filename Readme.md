@@ -163,16 +163,15 @@ parser using npm overrides and Yarn resolutions until those tools update their d
 
 ## Experimental Rust target
 
-The first Rust target generates a compilable Cargo project and data-record
-structs from the shared schema. It does not yet implement an HTTP/GraphQL
-server, database persistence or authorization. See [Rust target](Rust.md) for
+The Rust target generates typed records and an Axum/GraphQL server with health
+endpoints and a MongoDB connection pool. CRUD and authorization are pending. See [Rust target](Rust.md) for
 supported types, regeneration behavior and checks.
 
 ```sh
 npm run build
-node bin/cli.js examples/todo.schema ../todo-rust --target rust
+node bin/cli.js examples/todo.schema ../todo-rust --target rust --database mongodb
 cd ../todo-rust
-cargo check
+DATABASE_URL=mongodb://127.0.0.1:27017/todo cargo run
 ```
 
 # Usage

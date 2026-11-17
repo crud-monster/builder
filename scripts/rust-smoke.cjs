@@ -8,7 +8,7 @@ const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'gmb-rust-smo
 const cargo = process.env.GMB_CARGO_BIN || 'cargo'
 
 function run(...args) {
-    const result = spawnSync(cargo, args, { cwd: root, stdio: 'inherit' })
+    const result = spawnSync(cargo, args, { cwd: root, stdio: 'inherit', env: { CARGO_PROFILE_DEV_DEBUG: '0', CARGO_PROFILE_TEST_DEBUG: '0', CARGO_INCREMENTAL: '0', ...process.env } })
     if (result.error) throw new Error(`Cannot run Cargo. Install Rust with rustup or set GMB_CARGO_BIN: ${result.error.message}`)
     assert.equal(result.status, 0, `cargo ${args.join(' ')} failed`)
 }
@@ -93,13 +93,14 @@ fn built_in_password_is_not_serialized() {
     assert!(!value.to_string().contains("never-return-this"));
 }
 `)
+    fs.copyFileSync(path.join(__dirname, 'rust-server-tests.rs'), path.join(root, 'tests', 'server.rs'))
     const cliSchema = path.join(root, 'input.schema')
     fs.writeFileSync(cliSchema, schema)
     const cli = path.resolve(__dirname, '../bin/cli.js')
     const cliOutput = path.join(root, 'cli-project')
     const generated = spawnSync(process.execPath, [cli, cliSchema, cliOutput, '--target', 'rust'], { encoding: 'utf8' })
     assert.equal(generated.status, 0, generated.stderr + generated.stdout)
-    assert.equal(JSON.parse(fs.readFileSync(path.join(cliOutput, '.gmb-project.json'), 'utf8')).database, 'postgresql')
+    assert.equal(JSON.parse(fs.readFileSync(path.join(cliOutput, '.gmb-project.json'), 'utf8')).database, 'mongodb')
     assert(generated.stdout.includes('cargo check'))
     const unsupportedOutput = path.join(root, 'unsupported-project')
     const unsupported = spawnSync(process.execPath, [cli, cliSchema, unsupportedOutput, '--target', 'rust', '--database', 'mysql'], { encoding: 'utf8' })
@@ -122,8 +123,9 @@ fn built_in_password_is_not_serialized() {
     assert.equal(fs.readFileSync(path.join(root, 'Cargo.lock'), 'utf8'), lock)
     assert(fs.readFileSync(path.join(root, 'src/generated/models.rs'), 'utf8').includes('pub extra:'))
     run('test', '--locked')
+    if (process.env.GMB_MONGODB_URL) run('test', '--locked', '--test', 'server', '--', '--ignored')
     fs.rmSync(root, { recursive: true, force: true })
-    console.log('Rust smoke passed: Cargo check, generated model serialization/defaults/keywords, sensitive fields, and regeneration.')
+    console.log('Rust smoke passed: Cargo check, model serialization, HTTP/GraphQL routes, configuration, request limits, and regeneration.')
 }
 main().catch(error => {
     console.error(error)

@@ -15,16 +15,27 @@ function crateName(name: string): string {
 }
 
 async function generate({ name, source, outDir, models, config }: BackendTargetContext): Promise<void> {
-    const provider = databaseProvider(config.database ?? 'postgresql')
-    if (provider !== 'postgresql') throw new Error(`Rust target currently supports only postgresql, received ${provider}`)
+    const provider = databaseProvider(config.database ?? 'mongodb')
+    if (provider !== 'mongodb') throw new Error(`Rust target currently supports only mongodb, received ${provider}`)
     const overrides = Object.keys(config).filter(key => !['target', 'database', 'integrationTestsEnable'].includes(key) && config[key] !== undefined)
-    if (overrides.length || config.integrationTestsEnable) throw new Error('Rust model scaffold does not support integration test generation or TypeScript template overrides')
+    if (overrides.length || config.integrationTestsEnable) throw new Error('Rust target does not support integration test generation or TypeScript template overrides')
     // Validate and render before modifying the output project.
     const rendered = generateRustModels(models)
-    const initial = { '.gitignore': template('gitignore'), 'Cargo.toml': template('Cargo.toml').replace('__CRATE_NAME__', crateName(name)), 'README.md': template('README.md'), 'src/lib.rs': template('src/lib.rs'), 'src/main.rs': template('src/main.rs') }
+    const initial = {
+        '.gitignore': template('gitignore'),
+        '.env.example': template('env.example'),
+        'Cargo.toml': template('Cargo.toml').replace('__CRATE_NAME__', crateName(name)),
+        'README.md': template('README.md'),
+        'src/lib.rs': template('src/lib.rs'),
+        'src/main.rs': template('src/main.rs').replace('__CRATE_IDENT__', crateName(name).replace(/-/g, '_')),
+        'src/config.rs': template('src/config.rs'),
+        'src/server.rs': template('src/server.rs'),
+        'src/database/mod.rs': template('src/database/mod.rs'),
+        'src/database/mongo.rs': template('src/database/mongo.rs'),
+    }
     const marker = path.join(outDir, '.gmb-project.json')
-    const directories = [outDir, path.join(outDir, 'src'), path.join(outDir, 'src/generated')]
-    const files = ['.gitignore', 'Cargo.toml', 'README.md', 'src/lib.rs', 'src/main.rs', 'src/generated/mod.rs', 'src/generated/models.rs', 'src/generated/source.schema', '.gmb-project.json']
+    const directories = [outDir, path.join(outDir, 'src'), path.join(outDir, 'src/generated'), path.join(outDir, 'src/database')]
+    const files = [...Object.keys(initial), 'src/generated/mod.rs', 'src/generated/models.rs', 'src/generated/source.schema', '.gmb-project.json']
     for (const candidate of [...directories, ...files.map(file => path.join(outDir, file))]) {
         try {
             const status = fs.lstatSync(candidate)

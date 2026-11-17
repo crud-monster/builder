@@ -52,16 +52,16 @@ describe('Rust target', () => {
     })
 
     it('preserves editable project files and updates only generated models on regeneration', async () => {
-        await exportAsFromString('rust', schema, directory, { target: 'rust', database: 'postgresql' })
-        for (const file of ['Cargo.toml', 'src/main.rs', 'src/lib.rs', 'README.md', 'Cargo.lock']) fs.writeFileSync(path.join(directory, file), 'custom ' + file)
+        await exportAsFromString('rust', schema, directory, { target: 'rust', database: 'mongodb' })
+        for (const file of ['Cargo.toml', 'src/main.rs', 'src/lib.rs', 'src/config.rs', 'src/server.rs', 'src/database/mod.rs', 'src/database/mongo.rs', '.env.example', 'README.md', 'Cargo.lock']) fs.writeFileSync(path.join(directory, file), 'custom ' + file)
         const updated = schema.replace('    tags: [String]', '    tags: [String]\n    extra: Int!')
         await exportAsFromString('rust', updated, directory, { target: 'rust' })
         expect(fs.readFileSync(path.join(directory, 'src/generated/models.rs'), 'utf8')).toContain('pub extra: i32')
-        for (const file of ['Cargo.toml', 'src/main.rs', 'src/lib.rs', 'README.md', 'Cargo.lock']) expect(fs.readFileSync(path.join(directory, file), 'utf8')).toBe('custom ' + file)
+        for (const file of ['Cargo.toml', 'src/main.rs', 'src/lib.rs', 'src/config.rs', 'src/server.rs', 'src/database/mod.rs', 'src/database/mongo.rs', '.env.example', 'README.md', 'Cargo.lock']) expect(fs.readFileSync(path.join(directory, file), 'utf8')).toBe('custom ' + file)
     })
 
-    it.each(['mongodb', 'mysql'] as const)('rejects unsupported database %s before writing files', async database => {
-        await expect(exportAsFromString('rust', schema, directory, { target: 'rust', database })).rejects.toThrow('only postgresql')
+    it.each(['postgresql', 'mysql'] as const)('rejects unsupported database %s before writing files', async database => {
+        await expect(exportAsFromString('rust', schema, directory, { target: 'rust', database })).rejects.toThrow('only mongodb')
         expect(fs.readdirSync(directory)).toEqual([])
     })
 
