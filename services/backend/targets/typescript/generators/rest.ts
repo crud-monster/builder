@@ -233,9 +233,7 @@ export const compileConditionsToIfStatement = (conditions: string[], modelName: 
 
     if (modelName == 'User') {
         result += `
-    if(body.roles && !await userHaveRoles(ctx, ['admin'], entry.models.userRole)){
-        throw new RequestError('Unauthorized user:roles operation', 401)
-    }
+    await assertUserRoleMutationAllowed(ctx, body, entry.models.userRole)
   `
     }
 

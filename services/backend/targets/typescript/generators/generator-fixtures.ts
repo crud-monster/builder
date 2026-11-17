@@ -4,14 +4,16 @@ import * as path from 'path'
 import { getModelsFromSchema } from '../../../../parser/scan'
 import { createService } from './service'
 import { createResolver } from './resolvers'
+import { createRest } from './rest'
 import { SchemaModel } from '@common/types'
 
 const lowerFirst = (name: string) => name[0].toLowerCase() + name.slice(1)
 
-export const createGeneratedFixture = (model: SchemaModel, kind: 'service' | 'resolver') => {
+export const createGeneratedFixture = (model: SchemaModel, kind: 'service' | 'resolver' | 'rest') => {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'gmb-unit-'))
     fs.mkdirSync(path.join(directory, 'models'))
     fs.mkdirSync(path.join(directory, 'modules'))
+    if (kind === 'rest') fs.symlinkSync(path.resolve('node_modules'), path.join(directory, 'node_modules'), 'dir')
     fs.writeFileSync(path.join(directory, 'extras.ts'), `export * from ${JSON.stringify(path.resolve('services/backend/targets/typescript/templates/extras'))}`)
     fs.writeFileSync(path.join(directory, 'api-utils.ts'), `export * from ${JSON.stringify(path.resolve('services/backend/targets/typescript/templates/api/api-utils.t'))}`)
     const lower = lowerFirst(model.modelName)
@@ -27,7 +29,7 @@ export const createGeneratedFixture = (model: SchemaModel, kind: 'service' | 're
     `,
     )
     const file = path.join(directory, 'modules', model.modelName + '.ts')
-    fs.writeFileSync(file, kind === 'service' ? createService(model) : createResolver(model))
+    fs.writeFileSync(file, kind === 'service' ? createService(model) : kind === 'rest' ? createRest(model) : createResolver(model))
     const module = require(file)
     const database = require(path.join(directory, 'models', model.modelName + '.ts'))
     return { module, model: database[lower + 'Model'], temporaryId: database.temporaryId, lower, dispose: () => fs.rmSync(directory, { recursive: true, force: true }) }
