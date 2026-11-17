@@ -30,6 +30,7 @@ These are planned additions and improvements, not a list of completed features.
 -   **Fastify:** add a Fastify backend target for generated Node.js servers.
 -   **Rust:** add Rust code generation.
 -   **Go:** add Go code generation as another backend target.
+-   **Legacy integration:** support [gradual migration from existing applications](Architecture.md) through external identity, authorization and data providers, with modules mounted alongside the original system.
 -   **Schema validation:** extend schema-defined validation with value ranges and custom rules, alongside required fields and uniqueness constraints.
 -   **Query consistency:** define consistent filtering, sorting and pagination behavior across REST, GraphQL and generated backend targets.
 -   **Database migrations:** make schema changes reviewable before applying them to existing databases, with explicit handling of changes that could lose data.
