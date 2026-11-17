@@ -11,7 +11,7 @@ export function generateSqlModel(directory: BackendDirectory, model: SchemaModel
     // Embedded entities live in JSON columns and do not have their own SQL table.
     directory.modelsWrite(model.modelName, model.type === SchemaModelType.ENTITY
         ? `export type { ${model.modelName}Model } from '../model-types'\n`
-        : `const { model } = require('../sql/models.cjs')\nexport const ${firstToLower(model.modelName)}Model = model(${JSON.stringify(model.modelName)})\n`)
+        : `import { model } from '../sql/models'\nexport const ${firstToLower(model.modelName)}Model = model(${JSON.stringify(model.modelName)})\n`)
 }
 
 export function generateSqlService(directory: BackendDirectory, model: SchemaModel) {
@@ -20,15 +20,17 @@ export function generateSqlService(directory: BackendDirectory, model: SchemaMod
     service = service.replace(', Types }', ' }')
         .replace('const id = new Types.ObjectId()', 'const id = randomUUID()\n        data._id = id')
         .replace(`export const generate${model.modelName}Service =`, `const generateRaw${model.modelName}Service =`)
-    service = `import { randomUUID } from 'crypto'\nconst { transactionalServices } = require('../sql/models.cjs')\n` + service
+    service = `import { randomUUID } from 'crypto'\nimport { transactionalServices } from '../sql/models'\n` + service
     service += `\nexport const generate${model.modelName}Service = entry => transactionalServices(generateRaw${model.modelName}Service(entry))\n`
     directory.servicesWrite(model.modelName, service)
 }
 
 export function generateSqlRuntime(directory: BackendDirectory) {
     fs.mkdirSync(path.join(directory.baseDir, 'gen/sql'), { recursive: true })
-    for (const file of ['database.cjs', 'models.cjs', 'filter.cjs']) directory.genWrite(`sql/${file}`, templateFileToText(`sql/${file}`))
-    directory.genWrite('migrate.cjs', templateFileToText('sql/migrate.cjs'))
+    fs.mkdirSync(path.join(directory.baseDir, 'gen/sql/dialects'), { recursive: true })
+    for (const file of ['database.ts', 'models.ts', 'filter.ts', 'types.ts', 'migrate.ts', 'dialects/index.ts', 'dialects/postgresql.ts', 'dialects/mysql.ts']) {
+        directory.genWrite(`sql/${file}`, templateFileToText(`sql/${file}`))
+    }
 }
 
 export function generatedPackage(provider: DatabaseProvider) {
@@ -38,8 +40,8 @@ export function generatedPackage(provider: DatabaseProvider) {
         // SQL is an optional generated-backend dependency, not a builder dependency.
         manifest.dependencies.knex = '^3.3.0'
         manifest.dependencies[provider === 'postgresql' ? 'pg' : 'mysql2'] = provider === 'postgresql' ? '^8.23.1' : '^3.24.6'
-        manifest.scripts['db:migrate'] = 'node gen/migrate.cjs up'
-        manifest.scripts['db:status'] = 'node gen/migrate.cjs status'
+        manifest.scripts['db:migrate'] = 'ts-node gen/sql/migrate.ts up'
+        manifest.scripts['db:status'] = 'ts-node gen/sql/migrate.ts status'
     }
     return JSON.stringify(manifest, null, 2) + '\n'
 }
@@ -50,5 +52,5 @@ export function sqlExtras(config: any) {
     // SQL filters retain nested AND/OR and relation scopes.
     return source.replace('export const filterGen =', 'const legacyFilterGen =')
         .replace(/__forgottenPasswordToken:/g, '__resetPasswordToken:')
-        + `\nexport const filterGen = require('./sql/filter.cjs').filterGen\n`
+        + `\nexport { filterGen } from './sql/filter'\n`
 }

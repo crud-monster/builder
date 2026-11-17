@@ -16,24 +16,31 @@ else delete process.env.DATABASE_URL // The default smoke test always runs again
 
 async function main() {
     await exportAsFromString('smoke', '@all("public") @one("public") @create("public") @update("public") @remove("public")\nmodel Todo {\n title: String!\n done: Boolean\n price: Float\n}', root, { database: provider })
+    // Check the emitted runtime itself, including nested dialect templates, with strict typing.
+    const runtimeSources = ['database.ts', 'models.ts', 'filter.ts', 'types.ts', 'migrate.ts', 'dialects/index.ts']
+        .map(file => path.join(root, 'gen/sql', file))
+    require('child_process').execFileSync(process.execPath, [require.resolve('typescript/bin/tsc'),
+        '--noEmit', '--strict', '--skipLibCheck', '--target', 'es2020', '--module', 'commonjs',
+        ...runtimeSources, path.join(root, 'gen/services/db.ts')], { stdio: 'pipe' })
     const memory = newDb()
     memory.public.registerFunction({ name: 'current_database', returns: DataType.text, implementation: () => 'test' })
     memory.public.registerFunction({ name: 'version', returns: DataType.text, implementation: () => 'PostgreSQL 16.0' })
     const pg = memory.adapters.createKnex()
     cleanup.push(() => pg.destroy())
-    const databaseFile = path.join(root, 'gen/sql/database.cjs')
-    const runtimeFile = path.join(root, 'gen/sql/models.cjs')
+    require('ts-node').register({ transpileOnly: true, project: path.join(root, 'tsconfig.json'), compilerOptions: { module: 'commonjs', target: 'es2020' } })
+    const databaseFile = path.join(root, 'gen/sql/database.ts')
+    const runtimeFile = path.join(root, 'gen/sql/models.ts')
     const Module = require('module')
     const originalLoad = Module._load
     Module._load = function(request, parent, ...args) {
-        if (!realDatabase && request === 'knex' && parent.filename === databaseFile) return () => pg
+        if (!realDatabase && request === 'knex' && parent.filename === databaseFile) return { default: () => pg }
         return originalLoad.call(this, request, parent, ...args)
     }
     cleanup.push(() => { Module._load = originalLoad })
     const database = require(databaseFile)
     cleanup.push(() => database.close())
     const runtime = require(runtimeFile)
-    const filterGen = require(path.join(root, 'gen/sql/filter.cjs')).filterGen
+    const filterGen = require(path.join(root, 'gen/sql/filter.ts')).filterGen
     await assert.rejects(database.assertCurrent(), /not been migrated/)
     const applied = await database.migrate()
     assert.equal(applied.applied.length, 1)
@@ -67,7 +74,6 @@ async function main() {
     await user.save()
     assert.equal((await userModel.findById(user.id)).__verifyToken, null)
     process.env.JWT_TOKEN_SECRET = 'sql-smoke-secret-for-tests-only'
-    require('ts-node').register({ transpileOnly: true, project: path.join(root, 'tsconfig.json'), compilerOptions: { module: 'commonjs', target: 'es2020' } })
     const { entry, resolvers } = require(path.join(root, 'gen/entry.ts')).generateResolver()
     const { makeExecutableSchema } = require('@graphql-tools/schema')
     const { graphql } = require('graphql')

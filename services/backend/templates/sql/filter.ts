@@ -1,3 +1,5 @@
+import type { SqlFilter } from './types'
+
 // Preserve the GraphQL filter tree instead of flattening nested relation filters.
 const operators = [
     ['_not_starts_with', '$notStarts'], ['_not_ends_with', '$notEnds'], ['_not_contains', '$notContains'],
@@ -5,10 +7,10 @@ const operators = [
     ['_not_in', '$nin'], ['_every', '$every'], ['_none', '$none'],
     ['_not', '$ne'], ['_gte', '$gte'], ['_lte', '$lte'], ['_gt', '$gt'], ['_lt', '$lt'], ['_in', '$in'],
 ]
-const escape = value => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-function filterGen(filter) {
+const escape = (value: unknown) => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+export function filterGen(filter: SqlFilter | undefined): SqlFilter {
     if (!filter) return {}
-    const result = []
+    const result: SqlFilter[] = []
     for (const [key, value] of Object.entries(filter)) {
         if (key === 'AND' || key === 'OR') {
             result.push({ [key === 'AND' ? '$and' : '$or']: value.map(filterGen) })
@@ -29,4 +31,3 @@ function filterGen(filter) {
     }
     return result.length === 1 ? result[0] : { $and: result }
 }
-module.exports = { filterGen }

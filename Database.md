@@ -25,6 +25,29 @@ npm start
 
 Create the database and credentials beforehand. The migrator creates tables inside that database. Generation never connects to a database or applies migrations. Server startup refuses to proceed while migrations are pending.
 
+## SQL runtime and dialects
+
+The generated SQL runtime is TypeScript under `gen/sql/`. Shared connection,
+model, filter and migration code delegates driver selection, default ports,
+JSON expressions and regular expressions to `dialects/postgresql.ts` or
+`dialects/mysql.ts`. Migration SQL planning remains in the builder's shared
+database schema/diff code.
+
+When regenerating an existing SQL backend, update these scripts in its preserved
+`package.json` (generation does not overwrite that file):
+
+```json
+{
+  "db:migrate": "ts-node gen/sql/migrate.ts up",
+  "db:status": "ts-node gen/sql/migrate.ts status"
+}
+```
+
+These commands replace `node gen/migrate.cjs`. Custom imports of the old SQL
+`.cjs` runtime modules must use the corresponding TypeScript modules instead.
+Existing `database/migrations/*.cjs` files remain unchanged and are still loaded
+by the TypeScript runner, preserving their checksums and applied history.
+
 ## Schema history
 
 Commit the entire `database/` directory with the generated backend:
