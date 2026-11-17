@@ -21,7 +21,7 @@ below retain their original names.
 -   Apply [access rules](Schema.md#model-permissions) to individual model operations, including role-based permissions and user-specific filters.
 -   Connect custom code through [before and after hooks](#hooks) for business logic, validation and external integrations. Keep custom code outside `gen/` so it survives regeneration.
 -   Generate TypeScript servers with MongoDB by default, or [PostgreSQL and MySQL](Database.md) as database options.
--   Connect React applications using the existing [CRA templates](https://github.com/graphql-monster/cra-template-graphql-monster) (ES6 or [TypeScript](https://github.com/miuan/cra-template-graphql-monster-typescript)).
+-   Connect React applications using [CRUD Monster React](https://github.com/crud-monster/react).
 
 ## Roadmap
 
