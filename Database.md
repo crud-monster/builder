@@ -19,8 +19,11 @@ graphql-monster-builder models.schema ./server --target typescript --database po
 
 The programmatic `exportAs` / `exportAsFromString` configuration accepts
 `{ target: 'typescript', database: 'postgresql' }`. Target selection is independent
-of the database provider. TypeScript is currently the only supported target;
-unsupported targets are rejected before output files are changed. The builder
+of the database provider for TypeScript. The experimental Rust server foundation
+supports MongoDB connections and readiness checks. CRUD and migrations are not
+generated yet. Both targets default to MongoDB; PostgreSQL and MySQL runtime
+support currently belongs to the TypeScript target. See [Rust target](Rust.md).
+Unsupported targets are rejected before output files are changed. The builder
 parses the schema once and passes the models to the selected target generator.
 
 The TypeScript target owns its generators, templates, output directory layout,

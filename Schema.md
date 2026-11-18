@@ -17,7 +17,7 @@ type Todo @model {
 }
 ```
 
-**Todo** is a GraphQL Object Type, meaning it's a type with some fields. For ProtectQL meaning is a model.
+**Todo** is a GraphQL Object Type, meaning it's a type with some fields. In CRUD Monster, it represents a model.
 **name** and **done** are fields on the Character type. That means that name and done are the only fields that can appear in any part of a GraphQL query that operates on the Todo model/type.
 
 **String** is one of the built-in scalar types - these are types that resolve to a single scalar object, and can't have sub-selections in the query. We'll go over scalar types more later.
