@@ -11,9 +11,10 @@ export const generateDataloaders = async (backendDirectory: BackendDirectory, mo
     backendDirectory.genWrite(`dataloaders`, body)
 }
 
-export const generateDataloadersWorker = (models: SchemaModel[], ordered = false): string => {
+export const generateDataloadersWorker = (models: SchemaModel[], _ordered = false): string => {
     let body = `
   import * as DataLoader from 'dataloader';
+  import { UnauthorizedError } from './api-utils';
  
   interface IServiceDataloader {
     find(filter);
@@ -44,7 +45,7 @@ export const generateDataloadersWorker = (models: SchemaModel[], ordered = false
       return emptyResults;
     }
   
-    const count = await dataloader.service.countDocuments({_id:{$in:keys}});
+    const count = await dataloader.service.countDocuments({_id:{$in:Array.isArray(keys) ? keys : [keys]}});
   
     // we have to do this check if in keys only 1 item, as dataloader cannot handle it
     if (loadMany && keys.length && count === keys.length) {
@@ -61,7 +62,15 @@ export const generateDataloadersWorker = (models: SchemaModel[], ordered = false
     return emptyResults;
   };
   
-  const dataloaderByName = async (name: string, service: IServiceDataloader, ctx, listOfIds, loadMany) => {
+  const dataloaderByName = async (entry, name: string, service: IServiceDataloader, ctx, listOfIds, loadMany) => {
+    if (!listOfIds || (Array.isArray(listOfIds) && !listOfIds.length)) return loadMany ? [] : null;
+    const ids = (Array.isArray(listOfIds) ? listOfIds : [listOfIds])
+      .map(value => String(value && typeof value === 'object' ? value._id || value.id || value : value));
+    const authorizeRead = entry.resolvers?.[name]?.authorizeRead;
+    if (typeof authorizeRead !== 'function') throw new UnauthorizedError();
+    // Apply the target model's @one policy on every read, including cache hits.
+    // Check every ID before accessing the cache or bulk-loading relation records.
+    await Promise.all(ids.map(id => authorizeRead({ id }, ctx)));
     const dataloaderName = name + 'Dataloader';
   
     let dataloader;
@@ -79,7 +88,7 @@ export const generateDataloadersWorker = (models: SchemaModel[], ordered = false
       dataloader,
       name,
       ctx,
-      listOfIds,
+      loadMany ? ids : ids[0],
       loadMany,
     );
   };
@@ -103,8 +112,10 @@ export const generateDataloadersWorker = (models: SchemaModel[], ordered = false
   const batchFind = async (service: IServiceDataloader, keys) => {
     // tslint:disable-next-line:ter-arrow-parens
     return processBatches(keys, async (batchKeys) => {
-      const data = await service.find({_id: {$in: keys}})
-      return ${ordered ? 'batchKeys.map(key => data.find(row => String(row._id) === String(key)))' : 'data'}.map(d=>{
+      const data = await service.find({_id: {$in: batchKeys}})
+      // DataLoader associates values by position, regardless of database result ordering.
+      const byId = new Map<string, any>(data.map(row => [String(row._id), row]));
+      return batchKeys.map(key => byId.get(String(key))).map(d=>{
         if (!d) return null
         d.id = d._id
         return d
@@ -123,7 +134,7 @@ export const generateDataloadersWorker = (models: SchemaModel[], ordered = false
         body += `
 
     entry.dataloaders['${lower}'] = async (ctx, ${lower}Ids, loadMany) => {
-      return await dataloaderByName('${lower}', entry.models['${lower}'], ctx, ${lower}Ids, loadMany);
+      return await dataloaderByName(entry, '${lower}', entry.models['${lower}'], ctx, ${lower}Ids, loadMany);
     };
     `
     }

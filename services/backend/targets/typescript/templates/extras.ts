@@ -42,6 +42,10 @@ export const generateLogin = (entry) => async (root, data, ctx) => {
         await user.save()
         //}
 
+        // Nested relations in the login result enforce their normal read policy.
+        // Establish the identity only after credentials and persistence succeed.
+        ctx.state = { ...ctx.state, user: { id: String(user.id), roles: user.roles } }
+
         return {
             token: user.__token,
             refreshToken: user.__refreshToken,

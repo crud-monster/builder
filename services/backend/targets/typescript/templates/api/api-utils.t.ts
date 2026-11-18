@@ -68,6 +68,21 @@ export const userHaveRoles = async (ctx, roles, userRoleModel) => {
     return userId && (await userRoleModel.exists({ name: roles[0], users: userId }))
 }
 
+// REST accepts plain field assignments, not MongoDB operators or dotted update paths.
+// Check presence rather than truthiness: clearing roles also requires admin privileges.
+export const assertUserRoleMutationAllowed = async (ctx, data, userRoleModel) => {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+        throw new RequestError('Expected an object for user data')
+    }
+    const fields = Object.keys(data)
+    if (fields.some(field => field.startsWith('$') || field.includes('.'))) {
+        throw new RequestError('Database update operators and dotted paths are not supported in user data')
+    }
+    if (fields.some(field => field === 'roles' || field === 'rolesIds') && !(await userHaveRoles(ctx, ['admin'], userRoleModel))) {
+        throw new RequestError('Unauthorized user:roles operation', 401)
+    }
+}
+
 export const paramHaveFilter = (ctx, params, allowedFilters: any[], roles: string[]) => {
     const ctxUser = ctx?.state?.user
     const currentFilter = params?.filter

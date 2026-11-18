@@ -124,6 +124,29 @@ generated `package.json`. Swagger JSDoc 6.3 pins an older vulnerable `glob`;
 these entries replace only its copy with patched `glob` 14.0.4 or newer.
 Remove this targeted replacement once Swagger JSDoc itself depends on a patched version.
 
+## User role changes
+
+Generated User REST endpoints require an administrator to set or clear either
+`roles` or `rolesIds`. Administrator privileges are checked against stored role
+membership. User REST payloads accept ordinary field assignments; raw database
+update operators and dotted update paths are rejected.
+
+After upgrading the builder, regenerate the backend's `gen/` directory to apply
+these checks to existing generated servers.
+
+## Nested GraphQL read permissions
+
+GraphQL relations enforce the target model's `@one` read policy for each
+referenced record, including list relations and link/unlink result fields.
+Reading a public parent does not grant access to its protected related records.
+An unauthorized reference rejects the relation field with `Unauthorized`; a
+mixed list is rejected rather than returning records the caller cannot read.
+Empty relations remain empty, and authorization also runs on dataloader cache hits.
+
+After upgrading the builder, regenerate the backend's `gen/` directory. Clients
+may now receive authorization errors for nested fields that were previously
+returned without checking the target model's read policy.
+
 ## Development checks
 
 Builder source imports shared modules through `@common/*` (for example,
