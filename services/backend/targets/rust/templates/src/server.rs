@@ -1,18 +1,10 @@
-use async_graphql::{EmptyMutation, EmptySubscription, Object, Schema};
 use axum::{extract::{DefaultBodyLimit, State}, routing::{get, post}, Json, Router};
 use serde::Serialize;
 use mongodb::Database;
 use axum::http::StatusCode;
 use crate::database::mongo;
 
-pub struct QueryRoot;
-
-#[Object]
-impl QueryRoot {
-    async fn health(&self) -> bool { true }
-}
-
-type AppSchema = Schema<QueryRoot, EmptyMutation, EmptySubscription>;
+use crate::generated::graphql::{self as generated_graphql, AppSchema};
 
 #[derive(Serialize)]
 struct Health { status: &'static str }
@@ -40,11 +32,7 @@ async fn graphql(
 }
 
 pub fn router(database: Database) -> Router {
-    let schema = Schema::build(QueryRoot, EmptyMutation, EmptySubscription)
-        .data(database.clone())
-        .limit_depth(8)
-        .limit_complexity(64)
-        .finish();
+    let schema = generated_graphql::schema(database.clone());
     Router::new()
         .route("/health", get(health))
         .route("/ready", get(ready))

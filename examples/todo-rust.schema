@@ -1,0 +1,7 @@
+# Public CRUD example. For user-scoped lists, use examples/todo.schema instead;
+# Rust currently denies its authenticated list operation.
+@all("public") @one("public") @create("public") @update("public") @remove("public")
+model Todo {
+  message: String!
+  done: Boolean @default(false)
+}

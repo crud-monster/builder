@@ -164,12 +164,13 @@ parser using npm overrides and Yarn resolutions until those tools update their d
 ## Experimental Rust target
 
 The Rust target generates typed records and an Axum/GraphQL server with health
-endpoints and a MongoDB connection pool. CRUD and authorization are pending. See [Rust target](Rust.md) for
+endpoints, a MongoDB connection pool and basic CRUD for explicitly public scalar
+models. Authentication and owner/role authorization are pending. See [Rust target](Rust.md) for
 supported types, regeneration behavior and checks.
 
 ```sh
 npm run build
-node bin/cli.js examples/todo.schema ../todo-rust --target rust --database mongodb
+node bin/cli.js examples/todo-rust.schema ../todo-rust --target rust --database mongodb
 cd ../todo-rust
 DATABASE_URL=mongodb://127.0.0.1:27017/todo cargo run
 ```

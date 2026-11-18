@@ -29,6 +29,28 @@ model Task {
     address: Address
     secret: String @hidden
 }
+@all("public") @one("public") @create("public") @update("public") @remove("public")
+model Todo {
+    message: String!
+    title: String! @default("untitled")
+    done: Boolean @default(false)
+    count: Int! @default(0)
+    amount: Float
+    dueAt: DateTime
+    tags: [String]
+    note: String
+    secret: String @hidden
+    marker: String @readonly
+}
+@all(filter:"user_every.id={{userId}}")
+@one("public") @create("public") @update("public") @remove("public")
+model FilteredTodo {
+    message: String
+}
+@all("public")
+model PrivateRead {
+    message: String
+}
 model Keywords {
 ${keywords.map(name => `    ${name}: String`).join('\n')}
 }
@@ -94,6 +116,7 @@ fn built_in_password_is_not_serialized() {
 }
 `)
     fs.copyFileSync(path.join(__dirname, 'rust-server-tests.rs'), path.join(root, 'tests', 'server.rs'))
+    fs.copyFileSync(path.join(__dirname, 'rust-crud-tests.rs'), path.join(root, 'tests', 'crud.rs'))
     const cliSchema = path.join(root, 'input.schema')
     fs.writeFileSync(cliSchema, schema)
     const cli = path.resolve(__dirname, '../bin/cli.js')
@@ -122,10 +145,13 @@ fn built_in_password_is_not_serialized() {
     assert(fs.readFileSync(path.join(root, 'src/main.rs'), 'utf8').includes('User customization'))
     assert.equal(fs.readFileSync(path.join(root, 'Cargo.lock'), 'utf8'), lock)
     assert(fs.readFileSync(path.join(root, 'src/generated/models.rs'), 'utf8').includes('pub extra:'))
+    const constrainedOutput = path.join(root, 'constrained-project')
+    await exportAsFromString('constrained', 'model UniqueRecord {\n name: String! @unique\n}', constrainedOutput, { target: 'rust' })
+    run('check', '--manifest-path', path.join(constrainedOutput, 'Cargo.toml'), '--target-dir', process.env.CARGO_TARGET_DIR || path.join(root, 'target'))
     run('test', '--locked')
-    if (process.env.GMB_MONGODB_URL) run('test', '--locked', '--test', 'server', '--', '--ignored')
+    if (process.env.GMB_MONGODB_URL) run('test', '--locked', '--', '--ignored')
     fs.rmSync(root, { recursive: true, force: true })
-    console.log('Rust smoke passed: Cargo check, model serialization, HTTP/GraphQL routes, configuration, request limits, and regeneration.')
+    console.log('Rust smoke passed: Cargo check, model serialization, typed CRUD, permissions/input validation, HTTP routes, configuration, and regeneration.')
 }
 main().catch(error => {
     console.error(error)
