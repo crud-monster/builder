@@ -16,6 +16,7 @@ export const createGeneratedFixture = (model: SchemaModel, kind: 'service' | 're
     if (kind === 'rest') fs.symlinkSync(path.resolve('node_modules'), path.join(directory, 'node_modules'), 'dir')
     fs.writeFileSync(path.join(directory, 'extras.ts'), `export * from ${JSON.stringify(path.resolve('services/backend/targets/typescript/templates/extras'))}`)
     fs.writeFileSync(path.join(directory, 'api-utils.ts'), `export * from ${JSON.stringify(path.resolve('services/backend/targets/typescript/templates/api/api-utils.t'))}`)
+    fs.writeFileSync(path.join(directory, 'http-context.ts'), `export * from ${JSON.stringify(path.resolve('services/backend/targets/typescript/templates/http-context'))}`)
     const lower = lowerFirst(model.modelName)
     fs.writeFileSync(
         path.join(directory, 'models', model.modelName + '.ts'),

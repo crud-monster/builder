@@ -116,8 +116,8 @@ async function main() {
         (url, handler) => { routes[method + ' ' + url] = handler }]))
     require(path.join(root, 'gen/api/User.ts')).connectUserApi(router, entry)
     const userId = registered.register_v1.user.id
-    const context = (actorId, body) => ({ params: { id: userId }, request: { body },
-        state: { user: { id: actorId, roles: ['admin'] } }, query: {} })
+    const context = (actorId, body) => ({ params: { id: userId }, body,
+        user: { id: actorId, roles: ['admin'] }, query: {} })
     const adminRole = await entry.services.userRole.create({ name: 'admin' })
     for (const payload of [{ rolesIds: [adminRole.id] }, { rolesIds: [] }, { roles: null }]) {
         await assert.rejects(routes['put /user/:id'](context(userId, payload)), error => error.status === 401)
@@ -149,6 +149,8 @@ async function main() {
     const mysql = knex({ client: 'mysql2' })
     cleanup.push(() => mysql.destroy())
     const sqlTables = database.snapshot().schema.tables
+    const originalGetConnection = database.getConnection
+    const originalSnapshot = database.snapshot
     database.getConnection = () => mysql
     database.snapshot = () => ({ schema: { provider: 'mysql', tables: sqlTables } })
     const mockTable = { name: 'Todo', columns: [{ name: '_id', type: 'id' }, { name: 'title', type: 'text' }, { name: 'done', type: 'boolean' }, { name: 'price', type: 'float' }, { name: 'tags', type: 'json', array: true }, { name: 'user', type: 'id', relation: 'User' }, { name: 'address', type: 'json', entity: [{ name: 'city', type: 'text' }, { name: 'active', type: 'boolean' }] }] }
@@ -163,7 +165,46 @@ async function main() {
     assert(nested.sql.includes('_gmb_relation_0'))
     assert(!nested.sql.includes(injection))
     assert(nested.bindings.includes('Prague'))
-    console.log(`SQL smoke passed (${realDatabase ? provider : 'PostgreSQL emulation'}): migration lifecycle, CRUD, GraphQL CRUD/register/login/refresh, role relations, REST role authorization, nested GraphQL authorization and MySQL query compilation.`)
+    database.getConnection = originalGetConnection
+    database.snapshot = originalSnapshot
+    fs.writeFileSync(migrationPath, before)
+    process.env.PORT = '0'
+    process.env.ADMIN_EMAIL = 'admin@sql-smoke.test'
+    process.env.ADMIN_PASSWORD = 'sql-smoke-password'
+    process.env.STORAGE_DIR = path.join(root, 'storage')
+    const server = await require(path.join(root, 'server.ts')).connectionPromise
+    cleanup.push(() => server.app.close())
+    try {
+        const base = `http://127.0.0.1:${server.httpServer.address().port}`
+        const loginResponse = await fetch(base + '/auth/login_v1', {
+            method: 'POST', headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ email: process.env.ADMIN_EMAIL, password: process.env.ADMIN_PASSWORD }),
+        })
+        assert.equal(loginResponse.status, 200)
+        const credentials = (await loginResponse.json()).login_v1
+        assert(credentials.token)
+        const headers = { authorization: `Bearer ${credentials.token}`, 'content-type': 'application/json' }
+        const createdResponse = await fetch(base + '/api/todo', {
+            method: 'POST', headers, body: JSON.stringify({ title: 'Fastify SQL' }),
+        })
+        assert.equal(createdResponse.status, 200)
+        assert.equal((await createdResponse.json()).createTodo.title, 'Fastify SQL')
+        const me = await fetch(base + '/auth/me', { headers })
+        assert.equal((await me.json()).me.id, credentials.user.id)
+        const fileResponse = await fetch(base + '/graphql', {
+            method: 'POST', headers,
+            body: JSON.stringify({ query: 'mutation { createFile(name: "sql.txt", data: "SQL file") { id publicKey } }' }),
+        })
+        const fileResult = await fileResponse.json()
+        assert.equal(fileResult.errors, undefined, JSON.stringify(fileResult.errors))
+        const file = fileResult.data.createFile
+        assert.equal((await fetch(base + '/download/' + file.id)).status, 401)
+        assert.equal(await (await fetch(base + '/download/' + file.id, { headers })).text(), 'SQL file')
+        assert.equal(await (await fetch(base + '/download/' + file.publicKey)).text(), 'SQL file')
+    } finally {
+        await server.app.close()
+    }
+    console.log(`SQL smoke passed (${realDatabase ? provider : 'PostgreSQL emulation'}): migration lifecycle, CRUD, GraphQL CRUD/register/login/refresh, role relations, REST role authorization, nested GraphQL authorization, MySQL query compilation and Fastify HTTP login/CRUD/file downloads.`)
     fs.rmSync(root, { recursive: true, force: true })
 }
 main().catch(error => { console.error(error); console.error(`Generated backend retained for debugging: ${root}`); process.exitCode = 1 })

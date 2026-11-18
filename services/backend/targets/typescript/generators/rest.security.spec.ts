@@ -23,7 +23,7 @@ function setup(actor = 'regular', publicAccess = false) {
         } },
     }
     fixture.module.connectUserApi(router, entry)
-    const context = (body: any) => ({ request: { body }, params: { id: 'regular' }, state: { user: actor ? { id: actor, roles: ['admin'] } : undefined }, query: {} })
+    const context = (body: any) => ({ body, params: { id: 'regular' }, user: actor ? { id: actor, roles: ['admin'] } : undefined, query: {} })
     return { ...fixture, routes, entry, context }
 }
 

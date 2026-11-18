@@ -12,7 +12,7 @@ export async function generateAndRunServerFromSchema(name: string, schema: strin
 
     const runId = process.env.GMB_TEST_RUN_ID || String(process.pid)
     const worker = process.env.JEST_WORKER_ID || '1'
-    const integrationTestServerPath = path.resolve(`../__generated_servers_for_integration_test__/${runId}-${worker}/${name}`)
+    const integrationTestServerPath = path.join(os.tmpdir(), 'crud-monster-integration', `${runId}-${worker}`, name)
 
     await remakeServer(integrationTestServerPath, name, schema, `${dbname}_${runId}_${worker}`)
 
@@ -23,7 +23,7 @@ export async function generateAndRunServerFromSchema(name: string, schema: strin
     }) + '\n', { mode: 0o600 })
 
     const post = async (url, body: { query: string; variables: any }, token?: string) => {
-        const req = request(server.koa).post(url).set('Content-Type', 'application/json').set('Accept', 'application/json')
+        const req = request(server.httpServer).post(url).set('Content-Type', 'application/json').set('Accept', 'application/json')
 
         if (token) {
             req.set('Authorization', `Bearer ${token}`)
@@ -33,7 +33,7 @@ export async function generateAndRunServerFromSchema(name: string, schema: strin
     }
 
     const put = async (url, body: { query: string; variables: any }, token?: string) => {
-        const req = request(server.koa).put(url).set('Content-Type', 'application/json').set('Accept', 'application/json')
+        const req = request(server.httpServer).put(url).set('Content-Type', 'application/json').set('Accept', 'application/json')
 
         if (token) {
             req.set('Authorization', `Bearer ${token}`)
@@ -43,7 +43,7 @@ export async function generateAndRunServerFromSchema(name: string, schema: strin
     }
 
     const del = async (url, body: { query: string; variables: any }, token?: string) => {
-        const req = request(server.koa).delete(url).set('Content-Type', 'application/json').set('Accept', 'application/json')
+        const req = request(server.httpServer).delete(url).set('Content-Type', 'application/json').set('Accept', 'application/json')
 
         if (token) {
             req.set('Authorization', `Bearer ${token}`)
@@ -53,7 +53,7 @@ export async function generateAndRunServerFromSchema(name: string, schema: strin
     }
 
     const get = async (url, token?: string) => {
-        const req = request(server.koa).get(url).set('Content-Type', 'application/json').set('Accept', 'application/json')
+        const req = request(server.httpServer).get(url).set('Content-Type', 'application/json').set('Accept', 'application/json')
 
         if (token) {
             req.set('Authorization', `Bearer ${token}`)
@@ -136,9 +136,7 @@ async function replaceInFile(file, replaceFn) {
 
 export async function disconnectFromServer(server: any) {
     if (!server) return
-    await server.apollo.stop()
-    await new Promise<void>((resolve, reject) => server.koa.close(error => error ? reject(error) : resolve()))
-    await server.mongoDB.close()
+    await server.app.close()
     fs.rmSync(server.integrationTestServerPath, { recursive: true, force: true })
     console.log('server closed!')
 }

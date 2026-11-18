@@ -35,6 +35,8 @@ export const generateResolver = (setting = {}) => {
         storage: {} as ReturnType<typeof registerStorageService>,
     }
 
+    if (hooks.api) Object.assign(entry.hooks.api, hooks.api)
+
     if (hooks.services) {
         for (const serviceHookName in hooks.services) {
             entry.hooks.services[serviceHookName] = hooks.services[serviceHookName]

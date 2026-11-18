@@ -383,7 +383,7 @@ export const signup = async (email: string, password: string, fullname: string, 
 
 /**
  *
- * @param ctx - koa context have contained state
+ * @param ctx - request context have contained state
  * @return true - if current user in context is a admin
  */
 export const isUserRoleAsAdmin = (user) => {
@@ -397,7 +397,7 @@ export const isUserRoleAsAdmin = (user) => {
  * check if in context is User with UserRole:Admin
  * throw exception with not permit action
  *
- * @param ctx - koa context
+ * @param ctx - request context
  * @param passThru - default:false, but true -> not throw exception
  *
  * @return true - if User have UserRole:Admin
@@ -425,7 +425,7 @@ type testIfUserHavePermition = () => Promise<boolean>;
  * check if in context is User Owner or Admin
  * throw exception with not permit action
  *
- * @param ctx - koa context
+ * @param ctx - request context
  * @param passThru - default:false, but true -> not throw exception
  *
  * @return true - if User Owner or Admin
@@ -479,9 +479,9 @@ export const userCheck = async (ctx, passThru = false) => {
 /**
  * check if in context is a User
  * throw exception with not permit action
- * TODO: throw ecception for koa-resolver : 401 unauthorized
+ * TODO: throw ecception for resolver : 401 unauthorized
  *
- * @param ctx - koa context
+ * @param ctx - request context
  * @param passThru - default:false, but true -> not throw exception
  *
  * @return true - if context have a User with id

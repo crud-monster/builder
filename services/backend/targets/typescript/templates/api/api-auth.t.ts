@@ -1,23 +1,21 @@
 import { genPasswordAndTokens, getJwtSecret } from './jwt'
 export { generateTokenJWT, genPasswordAndTokens } from './jwt'
-import * as passport from 'koa-passport'
+import { Authenticator } from '@fastify/passport'
+import secureSession from '@fastify/secure-session'
+import { withContext } from './http-context'
 import * as bcrypt from 'bcrypt'
 import * as crypto from 'crypto'
-import { Router } from '@koa/router'
 import { Strategy as JwtStrategy, ExtractJwt } from 'passport-jwt'
-import { Strategy as AnonymousStrategy } from 'passport-anonymous'
 
 import { apiMiddleware, TokenExpiredError, UnauthorizedError } from './api-utils'
 
 export const passportSetupJwt = (app, userModel) => {
-    // const authRouter = new Router({ prefix: '/auth' })
-    passport.serializeUser<any, any>((req, user, done) => {
-        done(undefined, user)
-    })
-
-    passport.deserializeUser((id, done) => {
-        console.log('deserializeUser', id)
-        done(id)
+    const passport = new Authenticator()
+    // Passport's initialization plugin requires a session decorator, including
+    // for stateless strategies. API authentication still uses session: false.
+    app.register(secureSession, {
+        key: crypto.createHash('sha256').update('crud-monster:passport-session:').update(getJwtSecret()).digest(),
+        cookie: { path: '/auth', httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production' },
     })
 
     // http://www.passportjs.org/packages/passport-jwt/
@@ -47,12 +45,18 @@ export const passportSetupJwt = (app, userModel) => {
         ),
     )
 
-    passport.use(new AnonymousStrategy())
-
-    // Initialize Passport and restore authentication state, if any, from the session.
-    // It is use for GithubStrategy, GoogleStrategy, FacebookStrategy, ...
-    app.use(passport.initialize())
-    app.use(passport.authenticate(['jwt', 'anonymous'], { session: false }))
+    app.register(passport.initialize())
+    app.addHook('preValidation', async (request, reply) => {
+        // Missing credentials are allowed for public operations. Supplied invalid
+        // credentials must never silently downgrade to an anonymous request.
+        if (!request.headers.authorization && !request.query?.token) return
+        return passport.authenticate('jwt', { session: false }, async (request, reply, error, user) => {
+            if (error) throw error
+            if (!user) throw new UnauthorizedError()
+            request.user = user
+        }).call(app, request, reply)
+    })
+    return passport
 }
 
 export async function generateHash(password) {
@@ -301,13 +305,11 @@ const me_v1 = (userModel) => async (ctx) => {
 }
 
 export const setupAuth = (app, userModel) => {
-    passportSetupJwt(app, userModel)
-
-    const authRouter = new Router({ prefix: '/auth' })
-    authRouter.post('/login_v1', login_v1(userModel))
-    authRouter.post('/register_v1', register_v1(userModel))
-    authRouter.get('/me', me_v1(userModel))
-    return authRouter
+    const passport = passportSetupJwt(app, userModel)
+    app.post('/auth/login_v1', withContext(login_v1(userModel)))
+    app.post('/auth/register_v1', withContext(register_v1(userModel)))
+    app.get('/auth/me', withContext(me_v1(userModel)))
+    return passport
 }
 
 export default setupAuth

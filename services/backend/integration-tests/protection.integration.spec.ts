@@ -90,6 +90,18 @@ describe('i:protection', () => {
             await disconnectFromServer(server)
         })
 
+        const expectRelatedUser = (result, field, actorId, ownerId, isAdmin = false) => {
+            if (ownerId && !isAdmin && String(actorId) !== String(ownerId)) {
+                expect(result.errors).toEqual(expect.arrayContaining([
+                    expect.objectContaining({ message: 'Unauthorized', path: [field, 'user'] }),
+                ]))
+                expect(result.data[field].user).toBeNull()
+            } else {
+                expect(result).not.toHaveProperty('errors')
+                if (ownerId) expect(result.data[field].user.id).toBe(String(ownerId))
+            }
+        }
+
         describe.each([
             ['admin', allowedFor.admin, admin],
             ['user', allowedFor.user, user],
@@ -168,13 +180,10 @@ describe('i:protection', () => {
                     return
                 }
 
-                expect(data).not.toHaveProperty('errors')
-                expect(data).toHaveProperty(`data.create${keyName}`)
+                expectRelatedUser(data, `create${keyName}`, currentUser?.user?.id, user2.user.id, currentTokenName === 'admin')
                 expect(data).toHaveProperty(`data.create${keyName}.id`)
                 expect(data).toHaveProperty(`data.create${keyName}.name`, 'user242xwr')
-                if (currentUser?.token) {
-                    expect(data).toHaveProperty(`data.create${keyName}.user.id`, user2?.user?.id)
-                }
+                expect(String((await model1.findById(data.data[`create${keyName}`].id)).user)).toBe(user2.user.id)
             })
 
             it('shoudl with user2 create [api]' + (allowed ? '[200]' : '[401]'), async () => {
@@ -240,7 +249,7 @@ describe('i:protection', () => {
                 if (protectedTo !== 'public') {
                     expect(data2).toHaveProperty('errors', expect.arrayContaining([expect.objectContaining({ message: 'Unauthorized' })]))
                 } else {
-                    expect(data2).not.toHaveProperty('errors')
+                    expectRelatedUser(data2, `update${keyName}`, user2.user.id, currentUser?.user?.id)
                 }
             })
 
@@ -288,11 +297,10 @@ describe('i:protection', () => {
                     return
                 }
 
-                expect(data).not.toHaveProperty('errors')
-                expect(data).toHaveProperty(`data.update${keyName}`)
+                expectRelatedUser(data, `update${keyName}`, currentUser?.user?.id, user2.user.id, currentTokenName === 'admin')
                 expect(data).toHaveProperty(`data.update${keyName}.id`)
                 expect(data).toHaveProperty(`data.update${keyName}.name`, 'up4date45c2')
-                expect(data).toHaveProperty(`data.update${keyName}.user.id`, user2?.user?.id)
+                expect(String((await model1.findById(created._id)).user)).toBe(user2.user.id)
 
                 // test if user 2 can edit IT should because is a owner now
                 const data2 = await server.mutate(mutate, user2?.token)
@@ -447,7 +455,7 @@ describe('i:protection', () => {
 
                 // with another user should be posible remove only in public mode
                 if (protectedTo === 'public') {
-                    expect(data2).not.toHaveProperty('errors')
+                    expectRelatedUser(data2, keyName, user2.user.id, currentUser?.user?.id)
                 } else {
                     expect(data2).toHaveProperty('errors', expect.arrayContaining([expect.objectContaining({ message: 'Unauthorized' })]))
                 }
@@ -499,8 +507,22 @@ describe('i:protection', () => {
                     return
                 }
 
-                expect(data).not.toHaveProperty('errors')
                 expect(data).toHaveProperty(`data.all${keyName}`)
+                const records = await model1.find({}).lean()
+                let deniedRelations = 0
+                for (const [index, row] of data.data[`all${keyName}`].entries()) {
+                    const ownerId = records.find(record => String(record._id) === row.id)?.user
+                    if (ownerId && currentTokenName !== 'admin' && String(ownerId) !== currentUser?.user?.id) {
+                        deniedRelations++
+                        expect(row.user).toBeNull()
+                        expect(data.errors).toEqual(expect.arrayContaining([
+                            expect.objectContaining({ message: 'Unauthorized', path: [`all${keyName}`, index, 'user'] }),
+                        ]))
+                    } else {
+                        expect(row.user?.id || null).toBe(ownerId ? String(ownerId) : null)
+                    }
+                }
+                if (!deniedRelations) expect(data).not.toHaveProperty('errors')
                 expect(data).toHaveProperty(
                     `data.all${keyName}`,
                     expect.arrayContaining([

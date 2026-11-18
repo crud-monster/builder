@@ -23,16 +23,28 @@ const createUserFixture = () => {
 describe('login helper', () => {
     it('authenticates the password, saves tokens and returns login information', async () => {
         const { user, entry } = createUserFixture()
-        const result = await extras.generateLogin(entry)(null, { email: 'user@example.test', password: 'legacy-test-password' }, {})
+        const context = { state: { requestValue: 'preserved' } } as any
+        const result = await extras.generateLogin(entry)(null, { email: 'user@example.test', password: 'legacy-test-password' }, context)
         expect(user.save).toHaveBeenCalledTimes(1)
         expect(result).toEqual(expect.objectContaining({ token: expect.any(String), refreshToken: expect.any(String), user }))
+        expect(context.state).toEqual({ requestValue: 'preserved', user: { id: user.id, roles: user.roles } })
     })
 
     it.each(['wrong password', 'unknown user'])('rejects %s without saving tokens', async (scenario) => {
         const { user, userModel, entry } = createUserFixture()
         if (scenario === 'unknown user') userModel.findOne.mockResolvedValue(null)
-        await expect(extras.generateLogin(entry)(null, { email: 'user@example.test', password: 'wrong' }, {})).rejects.toBe('Email or password is not correct')
+        const context = { state: { user: { id: 'original-actor' } } }
+        await expect(extras.generateLogin(entry)(null, { email: 'user@example.test', password: 'wrong' }, context)).rejects.toBe('Email or password is not correct')
         expect(user.save).not.toHaveBeenCalled()
+        expect(context.state.user.id).toBe('original-actor')
+    })
+
+    it('does not establish an identity when token persistence fails', async () => {
+        const { user, entry } = createUserFixture()
+        const context = { state: {} }
+        user.save.mockRejectedValue(new Error('write failed'))
+        await expect(extras.generateLogin(entry)(null, { email: 'user@example.test', password: 'legacy-test-password' }, context)).rejects.toThrow('write failed')
+        expect(context.state).not.toHaveProperty('user')
     })
 })
 

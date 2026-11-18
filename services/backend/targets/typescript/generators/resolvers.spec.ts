@@ -56,7 +56,7 @@ describe.each(settings)('generated resolvers protected by %s', (kind, setting) =
         expect(entry.services.testResolver[operation.toLowerCase()]).not.toHaveBeenCalled()
     })
 
-    it.each(operations)('executes %s only after authorization and forwards the actual Koa user', async (operation) => {
+    it.each(operations)('executes %s only after authorization and forwards the authenticated user', async (operation) => {
         protections[kind].mockResolvedValue(true)
         const entry = createEntry()
         const context = createContext()
