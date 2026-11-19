@@ -1,12 +1,12 @@
-# Experimental Rust target: server foundation
+# Experimental Rust target: MongoDB CRUD
 
 The builder still runs in Node.js and uses the same schema parser as the
 TypeScript target. The Rust implementation emits a Cargo project with typed records, an Axum HTTP
-server and a minimal async-graphql schema.
+server and a typed async-graphql CRUD API for supported scalar models.
 
 ```sh
 npm run build
-node bin/cli.js examples/todo.schema ../todo-rust --target rust
+node bin/cli.js examples/todo-rust.schema ../todo-rust --target rust
 cd ../todo-rust
 cargo check
 cargo test
@@ -37,9 +37,11 @@ src/
   database/
     mod.rs
     mongo.rs
+    crud.rs
   generated/
     mod.rs
     models.rs
+    graphql.rs
     source.schema
 ```
 
@@ -69,9 +71,9 @@ are rejected before output files are changed.
 
 Hidden fields, underscore-prefixed fields and the built-in User password are
 excluded from serialization. The generated records do not derive Debug.
-They are data structures, not API input DTOs: permission rules, readonly
-attributes, uniqueness and regular-expression validation have no runtime
-implementation yet. They must not be exposed directly as a write API.
+They are data structures, not API input DTOs. Deserializing a record alone does
+not enforce permissions, readonly fields or persistence constraints. The CRUD
+API uses separate input/output DTOs and the restrictions described below.
 
 ## Regeneration
 
@@ -98,9 +100,8 @@ compiles an emitted project, runs Rust serialization/default/keyword tests,
 and checks the CLI and regeneration with a preserved lockfile. Set
 `GMB_CARGO_BIN` to use a Cargo executable outside PATH.
 
-The next step is a small MongoDB/GraphQL CRUD backend. Authentication,
-authorization and broader schema support must have parity tests before the
-Rust target can be used as a production backend.
+Authentication, user/owner/role authorization and broader schema support are
+pending. The API currently permits only explicitly public operations.
 
 ## Server configuration
 
@@ -111,11 +112,11 @@ error that does not expose credentials. The connection attempt is bounded by 10
 seconds; readiness pings by 2 seconds.
 
 `HOST` defaults to `127.0.0.1`, `PORT` to `3001`. `.env.example` lists the variables;
-export them yourself. GET `/health` returns `{"status":"ok"}` (process liveness).
+export them yourself. `GRAPHIQL_ENABLED` defaults to `false` and accepts only
+`true` or `false`. GET `/health` returns `{"status":"ok"}` (process liveness).
 GET `/ready` pings MongoDB and returns 200 or 503 without driver error details.
 POST `/graphql` accepts `{"query":"{ health }"}`. The shared MongoDB database
-handle is available in the GraphQL context for future resolvers. No model queries,
-mutations or authentication are exposed yet. Requests have a 32 KiB body limit,
+handle is shared by the generated CRUD resolvers. Authentication is pending. Requests have a 32 KiB body limit,
 depth 8 and complexity 64. Ctrl-C gracefully stops the HTTP server.
 
 `src/config.rs`, `src/server.rs`, `src/database/` and `.env.example` are also
@@ -130,4 +131,101 @@ An optional live MongoDB check uses a running local or test instance:
 GMB_MONGODB_URL=mongodb://127.0.0.1:27017/builder_smoke npm run test:rust
 ```
 
-The check pings the database and verifies `/ready`; it does not write data.
+The live checks verify `/ready` and exercise the CRUD lifecycle in a uniquely
+named `gmb_rust_crud_test_*` database, which is dropped on success. The database
+from the supplied URL is pinged but its application data is not modified. A failed
+test retains its temporary database for diagnosis.
+
+## Basic CRUD API
+
+`examples/todo-rust.schema` explicitly grants public access to each Todo operation.
+The original `examples/todo.schema` keeps its user-filtered list rule: Rust denies
+that list until authentication and filter authorization are implemented.
+
+```graphql
+mutation {
+  todoCreate(input: {message: "Try Rust"}) { id message done createdAt }
+}
+query {
+  todoAll(limit: 20, offset: 0) { id message done }
+  todoOne(id: "REPLACE_WITH_RETURNED_ID") { id message done }
+}
+mutation {
+  todoUpdate(id: "REPLACE_WITH_RETURNED_ID", input: {done: true}) { id message done }
+}
+mutation {
+  todoRemove(id: "REPLACE_WITH_RETURNED_ID")
+}
+```
+
+Send one operation at a time to POST `/graphql`, for example:
+
+```sh
+curl http://127.0.0.1:3001/graphql -H 'content-type: application/json' \
+  -d '{"query":"mutation { todoCreate(input: {message: \"Try Rust\"}) { id message done } }"}'
+```
+
+Operation names use the model name with a lowercase first character, followed by
+`Create`, `One`, `All`, `Update` or `Remove`. This initial Rust API is not yet a
+replacement for the full TypeScript GraphQL contract.
+
+- Supported fields: ID, String, Boolean, Int, Float, DateTime and scalar arrays.
+- Required create inputs are checked by GraphQL; scalar defaults apply on omission.
+  Explicit null does not activate a default. Updates preserve omitted fields;
+  explicit null clears nullable fields and is rejected for required fields.
+- IDs and timestamps are assigned by the server. Hidden, underscore-prefixed,
+  readonly and system relation fields are excluded from write inputs. Hidden and
+  relation fields are absent from output DTOs. System User, UserRole and File
+  models have no CRUD API.
+- An operation is permitted only by an unrestricted `public` rule. Lists and
+  mutations that return a record also require public `one` access. Owner, user,
+  role, filter and field-restricted rules are denied before database access.
+- Models with custom relations/entities, uniqueness or regex validation stay
+  record-only. Required hidden/readonly fields, or defaults on those fields,
+  also keep a model out of the API. The builder does not bypass these constraints.
+- Lists default to 20 rows; limit is 1–100, offset is 0–10000. Ordering is by ID.
+  Missing records return null for One/Update and false for Remove. Empty updates
+  return the existing record without changing its timestamp.
+- Each database operation has a five-second timeout. Driver failures return
+  generic errors. GraphQL inputs do not accept MongoDB filters or update operators.
+
+Collections are named `gmb_rust_<ModelName>`. IDs are hex ObjectId strings and
+DateTime fields, including timestamps, are stored as RFC3339 strings. This layout
+is experimental and separate from the TypeScript/Mongoose storage format.
+
+When upgrading the earlier server scaffold, merge the new `Cargo.toml` features,
+`src/server.rs`, `src/database/mod.rs` and `src/database/crud.rs` from a fresh
+output directory. In particular the server must build its schema through
+`generated::graphql::schema(database.clone())`; its old health-only schema is
+preserved on regeneration. Subsequent schema changes regenerate GraphQL DTOs and
+permission checks under `src/generated/` automatically.
+
+## GraphiQL browser interface
+
+Start with GraphiQL explicitly enabled:
+
+```sh
+DATABASE_URL=mongodb://127.0.0.1:27017/todo GRAPHIQL_ENABLED=true cargo run
+```
+
+Open <http://127.0.0.1:3001/graphql>. GET serves the GraphiQL editor with schema
+exploration, autocomplete and execution against POST `/graphql` on the same
+server. For example:
+
+```graphql
+mutation {
+  todoCreate(input: {message: "Try GraphiQL"}) { id message done }
+}
+```
+
+The editor uses the upstream async-graphql GraphiQL HTML template and fetches
+JavaScript/CSS from unpkg.com, so the browser needs internet access to load it.
+The flag only enables the editor; it does not change CRUD permissions. When the
+flag is absent or `false`, GET `/graphql` returns 405 and POST keeps working.
+Invalid flag values stop startup.
+
+For an existing generated application, merge updated `src/config.rs`,
+`src/server.rs`, `src/main.rs`, `.env.example` and Cargo.toml from a fresh output
+directory. Regeneration preserves these editable files. The new main passes
+`config.graphiql_enabled` to `server::router_with_graphiql`; `server::router`
+remains available with the editor disabled.

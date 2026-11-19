@@ -23,7 +23,7 @@ function snakeCase(name: string, location: string): string {
     return name.replace(/([A-Z]+)([A-Z][a-z])/g, '$1_$2').replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase()
 }
 
-function fieldName(member: SchemaModelMember, model: SchemaModel): string {
+export function fieldName(member: SchemaModelMember, model: SchemaModel): string {
     const name = snakeCase(member.name, `${model.modelName}.${member.name}`)
     if (specialIdentifiers.has(name)) return name + '_'
     return keywords.has(name) ? 'r#' + name : name
@@ -34,7 +34,7 @@ export function rustTypeName(model: SchemaModel): string {
     return name + (model.type === SchemaModelType.ENTITY ? 'Entity' : 'Record')
 }
 
-function memberType(member: SchemaModelMember): string {
+export function memberType(member: SchemaModelMember): string {
     let base: string
     if (member.relation?.type === SchemaModelRelationType.ENTITY) base = rustTypeName(member.relation.relatedModel)
     else if (member.relation) base = scalarTypes.ID
@@ -44,7 +44,7 @@ function memberType(member: SchemaModelMember): string {
     return member.isRequired ? type : `std::option::Option<${type}>`
 }
 
-function defaultValue(model: SchemaModel, member: SchemaModelMember): string {
+export function defaultValue(model: SchemaModel, member: SchemaModelMember): string {
     const value = member.default
     const label = `${model.modelName}.${member.name}`
     if (member.relation || member.isArray) throw new Error(`Unsupported Rust default on relation or array: ${label}`)
