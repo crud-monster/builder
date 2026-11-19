@@ -112,7 +112,8 @@ error that does not expose credentials. The connection attempt is bounded by 10
 seconds; readiness pings by 2 seconds.
 
 `HOST` defaults to `127.0.0.1`, `PORT` to `3001`. `.env.example` lists the variables;
-export them yourself. GET `/health` returns `{"status":"ok"}` (process liveness).
+export them yourself. `GRAPHIQL_ENABLED` defaults to `false` and accepts only
+`true` or `false`. GET `/health` returns `{"status":"ok"}` (process liveness).
 GET `/ready` pings MongoDB and returns 200 or 503 without driver error details.
 POST `/graphql` accepts `{"query":"{ health }"}`. The shared MongoDB database
 handle is shared by the generated CRUD resolvers. Authentication is pending. Requests have a 32 KiB body limit,
@@ -198,3 +199,33 @@ output directory. In particular the server must build its schema through
 `generated::graphql::schema(database.clone())`; its old health-only schema is
 preserved on regeneration. Subsequent schema changes regenerate GraphQL DTOs and
 permission checks under `src/generated/` automatically.
+
+## GraphiQL browser interface
+
+Start with GraphiQL explicitly enabled:
+
+```sh
+DATABASE_URL=mongodb://127.0.0.1:27017/todo GRAPHIQL_ENABLED=true cargo run
+```
+
+Open <http://127.0.0.1:3001/graphql>. GET serves the GraphiQL editor with schema
+exploration, autocomplete and execution against POST `/graphql` on the same
+server. For example:
+
+```graphql
+mutation {
+  todoCreate(input: {message: "Try GraphiQL"}) { id message done }
+}
+```
+
+The editor uses the upstream async-graphql GraphiQL HTML template and fetches
+JavaScript/CSS from unpkg.com, so the browser needs internet access to load it.
+The flag only enables the editor; it does not change CRUD permissions. When the
+flag is absent or `false`, GET `/graphql` returns 405 and POST keeps working.
+Invalid flag values stop startup.
+
+For an existing generated application, merge updated `src/config.rs`,
+`src/server.rs`, `src/main.rs`, `.env.example` and Cargo.toml from a fresh output
+directory. Regeneration preserves these editable files. The new main passes
+`config.graphiql_enabled` to `server::router_with_graphiql`; `server::router`
+remains available with the editor disabled.

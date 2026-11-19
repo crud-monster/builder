@@ -172,8 +172,11 @@ supported types, regeneration behavior and checks.
 npm run build
 node bin/cli.js examples/todo-rust.schema ../todo-rust --target rust --database mongodb
 cd ../todo-rust
-DATABASE_URL=mongodb://127.0.0.1:27017/todo cargo run
+DATABASE_URL=mongodb://127.0.0.1:27017/todo GRAPHIQL_ENABLED=true cargo run
 ```
+
+Open <http://127.0.0.1:3001/graphql> for GraphiQL. The editor is opt-in through
+`GRAPHIQL_ENABLED=true` and uses the same GraphQL API.
 
 # Usage
 

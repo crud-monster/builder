@@ -66,3 +66,34 @@ async fn mongodb_connection_and_readiness() {
     ).await.unwrap();
     assert_eq!(response.status(), StatusCode::OK);
 }
+
+#[test]
+fn graphiql_is_opt_in_and_rejects_invalid_configuration() {
+    let config = || Config::parse("mongodb://localhost/todo", "127.0.0.1", "3001").unwrap();
+    assert!(!config().graphiql_enabled);
+    assert!(config().with_graphiql("true").unwrap().graphiql_enabled);
+    assert!(!config().with_graphiql("false").unwrap().graphiql_enabled);
+    for value in ["", "TRUE", "1", "yes"] {
+        assert!(config().with_graphiql(value).is_err());
+    }
+}
+
+#[tokio::test]
+async fn graphiql_serves_html_and_keeps_post_api_available() {
+    let client = mongodb::Client::with_uri_str("mongodb://127.0.0.1:1/todo?serverSelectionTimeoutMS=50").await.unwrap();
+    let app = server::router_with_graphiql(client.default_database().unwrap(), true);
+    let response = app.clone().oneshot(Request::builder().uri("/graphql").body(Body::empty()).unwrap()).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert!(response.headers()["content-type"].to_str().unwrap().starts_with("text/html"));
+    let body = to_bytes(response.into_body(), 64 * 1024).await.unwrap();
+    let html = std::str::from_utf8(&body).unwrap();
+    assert!(html.contains("CRUD Monster GraphiQL"));
+    assert!(html.contains("GraphiQL.createFetcher"));
+    assert!(html.contains("/graphql"));
+    let response = app.oneshot(Request::post("/graphql").header("content-type", "application/json")
+        .body(Body::from(r#"{"query":"{ health }"}"#)).unwrap()).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = to_bytes(response.into_body(), 4096).await.unwrap();
+    let value: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(value["data"]["health"], true);
+}

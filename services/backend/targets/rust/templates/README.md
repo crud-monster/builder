@@ -78,3 +78,22 @@ The editable server delegates to `generated::graphql::schema`. Regeneration
 refreshes that schema and its permission checks while preserving server and
 database helper edits. For older generated projects, merge the latest Cargo.toml,
 server.rs and database modules from a fresh generated directory to enable CRUD.
+
+## GraphiQL
+
+```sh
+DATABASE_URL=mongodb://127.0.0.1:27017/todo GRAPHIQL_ENABLED=true cargo run
+```
+
+Open <http://127.0.0.1:3001/graphql> to explore the schema and execute GraphQL
+queries/mutations. The editor uses POST `/graphql` on the same server. Its
+JavaScript/CSS loads from unpkg.com and requires browser internet access.
+
+`GRAPHIQL_ENABLED` defaults to `false`; only `true` and `false` are accepted.
+When disabled, GET `/graphql` returns 405 and POST still serves the API. This
+flag does not grant additional access to data.
+
+On existing generated applications, merge the new Cargo.toml features,
+config.rs, server.rs, main.rs and .env.example from a fresh output directory.
+They are preserved on regeneration. The new main uses
+`server::router_with_graphiql(database, config.graphiql_enabled)`.
