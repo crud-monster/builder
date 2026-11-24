@@ -28,6 +28,9 @@ describe('Rust GraphQL CRUD', () => {
         const inputs = generated.slice(generated.indexOf('pub struct CrudTodoRecordCreate'), generated.indexOf('pub struct QueryRoot'))
         expect(inputs).not.toContain('pub marker:')
         expect(inputs).not.toContain('pub id:')
+        expect(generated).toContain('async fn login(')
+        expect(generated).toContain('async fn me(')
+        expect(generated).not.toContain('async fn register(')
         expect(generated).not.toContain('userCreate')
         expect(generated).not.toContain('userRoleCreate')
         expect(generated).not.toContain('fileCreate')
@@ -57,7 +60,7 @@ describe('Rust GraphQL CRUD', () => {
         expect(supportsRustCrud(parsed.find(model => model.modelName === 'Todo'))).toBe(false)
         const generated = generateRustGraphql(parsed)
         expect(generated).not.toContain('todoCreate')
-        expect(generated).toContain('pub type MutationRoot = async_graphql::EmptyMutation')
+        expect(generated).toContain('async fn login(')
     })
 
     it('regenerates permissions while preserving server customizations', async () => {

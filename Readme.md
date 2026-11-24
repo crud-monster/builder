@@ -165,7 +165,7 @@ parser using npm overrides and Yarn resolutions until those tools update their d
 
 The Rust target generates typed records and an Axum/GraphQL server with health
 endpoints, a MongoDB connection pool and basic CRUD for explicitly public scalar
-models. Authentication and owner/role authorization are pending. See [Rust target](Rust.md) for
+models, bcrypt login and JWT authentication. Owner/role authorization is pending. See [Rust target](Rust.md) for
 supported types, regeneration behavior and checks.
 
 ```sh
@@ -177,6 +177,9 @@ DATABASE_URL=mongodb://127.0.0.1:27017/todo GRAPHIQL_ENABLED=true cargo run
 
 Open <http://127.0.0.1:3001/graphql> for GraphiQL. The editor is opt-in through
 `GRAPHIQL_ENABLED=true` and uses the same GraphQL API.
+Create an account with `DATABASE_URL=mongodb://127.0.0.1:27017/todo cargo run -- create-user you@example.test`.
+The generated private `.env` holds a random JWT signing key. See [Rust.md](Rust.md)
+for login, Bearer tokens and current-user queries.
 
 # Usage
 

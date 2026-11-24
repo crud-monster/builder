@@ -53,11 +53,24 @@ describe('Rust target', () => {
 
     it('preserves editable project files and updates only generated models on regeneration', async () => {
         await exportAsFromString('rust', schema, directory, { target: 'rust', database: 'mongodb' })
-        for (const file of ['Cargo.toml', 'src/main.rs', 'src/lib.rs', 'src/config.rs', 'src/server.rs', 'src/database/mod.rs', 'src/database/mongo.rs', 'src/database/crud.rs', '.env.example', 'README.md', 'Cargo.lock']) fs.writeFileSync(path.join(directory, file), 'custom ' + file)
+        for (const file of ['Cargo.toml', 'src/main.rs', 'src/lib.rs', 'src/config.rs', 'src/auth.rs', '.env', 'src/server.rs', 'src/database/mod.rs', 'src/database/mongo.rs', 'src/database/crud.rs', '.env.example', 'README.md', 'Cargo.lock']) fs.writeFileSync(path.join(directory, file), 'custom ' + file)
         const updated = schema.replace('    tags: [String]', '    tags: [String]\n    extra: Int!')
         await exportAsFromString('rust', updated, directory, { target: 'rust' })
         expect(fs.readFileSync(path.join(directory, 'src/generated/models.rs'), 'utf8')).toContain('pub extra: i32')
-        for (const file of ['Cargo.toml', 'src/main.rs', 'src/lib.rs', 'src/config.rs', 'src/server.rs', 'src/database/mod.rs', 'src/database/mongo.rs', 'src/database/crud.rs', '.env.example', 'README.md', 'Cargo.lock']) expect(fs.readFileSync(path.join(directory, file), 'utf8')).toBe('custom ' + file)
+        for (const file of ['Cargo.toml', 'src/main.rs', 'src/lib.rs', 'src/config.rs', 'src/auth.rs', '.env', 'src/server.rs', 'src/database/mod.rs', 'src/database/mongo.rs', 'src/database/crud.rs', '.env.example', 'README.md', 'Cargo.lock']) expect(fs.readFileSync(path.join(directory, file), 'utf8')).toBe('custom ' + file)
+    })
+
+    it('generates a private random JWT secret and preserves it on regeneration', async () => {
+        await exportAsFromString('rust', schema, directory, { target: 'rust' })
+        const filename = path.join(directory, '.env')
+        const secret = fs.readFileSync(filename, 'utf8')
+        expect(secret).toMatch(/^JWT_TOKEN_SECRET=[a-f0-9]{64}\n$/)
+        expect(fs.statSync(filename).mode & 0o777).toBe(0o600)
+        await exportAsFromString('rust', schema, directory, { target: 'rust' })
+        expect(fs.readFileSync(filename, 'utf8')).toBe(secret)
+        const other = path.join(directory, 'other')
+        await exportAsFromString('rust', schema, other, { target: 'rust' })
+        expect(fs.readFileSync(path.join(other, '.env'), 'utf8')).not.toBe(secret)
     })
 
     it.each(['postgresql', 'mysql'] as const)('rejects unsupported database %s before writing files', async database => {
@@ -120,7 +133,7 @@ describe('Rust target', () => {
         expect(() => generateRustModels(models)).toThrow('Unsupported Rust type')
     })
 
-    it.each(['src/generated/models.rs', 'src/generated/graphql.rs', 'src/database/crud.rs'])('does not follow a file symlink, including a dangling link: %s', async filename => {
+    it.each(['src/generated/models.rs', 'src/generated/graphql.rs', 'src/database/crud.rs', 'src/auth.rs', '.env'])('does not follow a file symlink, including a dangling link: %s', async filename => {
         await exportAsFromString('rust', schema, directory, { target: 'rust' })
         const file = path.join(directory, filename)
         const outside = path.join(directory, 'must-not-be-created.rs')

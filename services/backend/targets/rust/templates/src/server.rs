@@ -3,7 +3,8 @@ use serde::Serialize;
 use axum::response::Html;
 use async_graphql::http::GraphiQLSource;
 use mongodb::Database;
-use axum::http::StatusCode;
+use axum::http::{StatusCode, HeaderMap};
+use crate::auth::{self, AuthService, RequestUser, AuthError};
 use crate::database::mongo;
 
 use crate::generated::graphql::{self as generated_graphql, AppSchema};
@@ -17,6 +18,7 @@ async fn health() -> Json<Health> { Json(Health { status: "ok" }) }
 struct AppState {
     schema: AppSchema,
     database: Database,
+    auth: Option<AuthService>,
 }
 
 async fn ready(State(state): State<AppState>) -> (StatusCode, Json<Health>) {
@@ -26,11 +28,28 @@ async fn ready(State(state): State<AppState>) -> (StatusCode, Json<Health>) {
     }
 }
 
+#[derive(Serialize)]
+struct AuthFailure { error: String }
+
 async fn graphql(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Json(request): Json<async_graphql::Request>,
-) -> Json<async_graphql::Response> {
-    Json(state.schema.execute(request).await)
+) -> Result<Json<async_graphql::Response>, (StatusCode, Json<AuthFailure>)> {
+    let authenticate = async {
+        match auth::bearer_token(&headers)? {
+            None => Ok(None),
+            Some(token) => {
+                let auth = state.auth.as_ref().ok_or(AuthError::Unauthorized)?;
+                Ok(Some(auth.authenticate(&state.database, token).await?))
+            }
+        }
+    };
+    let user = authenticate.await.map_err(|error| {
+        let status = match error { AuthError::Unavailable => StatusCode::SERVICE_UNAVAILABLE, _ => StatusCode::UNAUTHORIZED };
+        (status, Json(AuthFailure { error: error.to_string() }))
+    })?;
+    Ok(Json(state.schema.execute(request.data(RequestUser(user))).await))
 }
 
 async fn graphiql() -> Html<String> {
@@ -42,7 +61,15 @@ pub fn router(database: Database) -> Router {
 }
 
 pub fn router_with_graphiql(database: Database, graphiql_enabled: bool) -> Router {
-    let schema = generated_graphql::schema(database.clone());
+    build_router(database, graphiql_enabled, None)
+}
+
+pub fn router_with_auth(database: Database, graphiql_enabled: bool, auth: AuthService) -> Router {
+    build_router(database, graphiql_enabled, Some(auth))
+}
+
+fn build_router(database: Database, graphiql_enabled: bool, auth: Option<AuthService>) -> Router {
+    let schema = generated_graphql::schema_with_auth(database.clone(), auth.clone());
     let graphql_route = post(graphql);
     let graphql_route = if graphiql_enabled { graphql_route.get(graphiql) } else { graphql_route };
     Router::new()
@@ -50,5 +77,5 @@ pub fn router_with_graphiql(database: Database, graphiql_enabled: bool) -> Route
         .route("/ready", get(ready))
         .route("/graphql", graphql_route)
         .layer(DefaultBodyLimit::max(32 * 1024))
-        .with_state(AppState { schema, database })
+        .with_state(AppState { schema, database, auth })
 }

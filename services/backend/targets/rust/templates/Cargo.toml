@@ -8,8 +8,12 @@ publish = false
 [dependencies]
 axum = "0.8"
 async-graphql = { version = "7.2", features = ["chrono", "graphiql"] }
-tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "signal", "time"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "signal", "time", "sync"] }
 mongodb = "3"
+jsonwebtoken = { version = "12", default-features = false, features = ["rust_crypto"] }
+bcrypt = "0.19"
+dotenvy = "0.15"
+rpassword = "7"
 serde = { version = "1", features = ["derive"] }
 chrono = { version = "0.4", default-features = false, features = ["std", "serde", "clock"] }
 

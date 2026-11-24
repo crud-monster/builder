@@ -1,4 +1,4 @@
-# Experimental Rust target: MongoDB CRUD
+# Experimental Rust target: MongoDB CRUD and authentication
 
 The builder still runs in Node.js and uses the same schema parser as the
 TypeScript target. The Rust implementation emits a Cargo project with typed records, an Axum HTTP
@@ -28,11 +28,13 @@ Frontend generation, TypeScript template overrides and
 ```text
 Cargo.toml
 README.md
+.env                  # private generated JWT key, excluded from Git
 .gmb-project.json
 src/
   main.rs
   lib.rs
   config.rs
+  auth.rs
   server.rs
   database/
     mod.rs
@@ -100,8 +102,9 @@ compiles an emitted project, runs Rust serialization/default/keyword tests,
 and checks the CLI and regeneration with a preserved lockfile. Set
 `GMB_CARGO_BIN` to use a Cargo executable outside PATH.
 
-Authentication, user/owner/role authorization and broader schema support are
-pending. The API currently permits only explicitly public operations.
+Login and bearer-token authentication are implemented. User/owner/role
+authorization and broader schema support are pending: CRUD still permits only
+explicitly public operations.
 
 ## Server configuration
 
@@ -112,11 +115,12 @@ error that does not expose credentials. The connection attempt is bounded by 10
 seconds; readiness pings by 2 seconds.
 
 `HOST` defaults to `127.0.0.1`, `PORT` to `3001`. `.env.example` lists the variables;
-export them yourself. `GRAPHIQL_ENABLED` defaults to `false` and accepts only
+set them in the environment or the project-root `.env`. Existing environment
+values override the file. `GRAPHIQL_ENABLED` defaults to `false` and accepts only
 `true` or `false`. GET `/health` returns `{"status":"ok"}` (process liveness).
 GET `/ready` pings MongoDB and returns 200 or 503 without driver error details.
 POST `/graphql` accepts `{"query":"{ health }"}`. The shared MongoDB database
-handle is shared by the generated CRUD resolvers. Authentication is pending. Requests have a 32 KiB body limit,
+handle is shared by the generated CRUD and authentication resolvers. Requests have a 32 KiB body limit,
 depth 8 and complexity 64. Ctrl-C gracefully stops the HTTP server.
 
 `src/config.rs`, `src/server.rs`, `src/database/` and `.env.example` are also
@@ -177,7 +181,7 @@ replacement for the full TypeScript GraphQL contract.
   readonly and system relation fields are excluded from write inputs. Hidden and
   relation fields are absent from output DTOs. System User, UserRole and File
   models have no CRUD API.
-- An operation is permitted only by an unrestricted `public` rule. Lists and
+- A CRUD operation is permitted only by an unrestricted `public` rule. Lists and
   mutations that return a record also require public `one` access. Owner, user,
   role, filter and field-restricted rules are denied before database access.
 - Models with custom relations/entities, uniqueness or regex validation stay
@@ -229,3 +233,89 @@ For an existing generated application, merge updated `src/config.rs`,
 directory. Regeneration preserves these editable files. The new main passes
 `config.graphiql_enabled` to `server::router_with_graphiql`; `server::router`
 remains available with the editor disabled.
+
+## Authentication
+
+Every new Rust project receives a random 256-bit `JWT_TOKEN_SECRET` in `.env`,
+created with permissions 0600 and excluded from Git. Regeneration preserves it.
+The server reads `.env` from its current working directory without mutating the
+process environment. Run commands from the generated project directory.
+Environment variables take precedence. Missing, blank or shorter-than-32-byte
+JWT secrets stop startup; there is no public fallback key. Rotating the key
+invalidates all previously issued tokens.
+
+Create an account locally (MongoDB must be running):
+
+```sh
+DATABASE_URL=mongodb://127.0.0.1:27017/todo cargo run -- create-user you@example.test
+```
+
+The command prompts twice without echoing the password. Passwords must contain
+12–72 UTF-8 bytes and no NUL characters. They are hashed with bcrypt cost 12 on a
+blocking worker. No account, password or admin role is created automatically.
+The account starts with an empty roles array. Email addresses are trimmed and
+normalized to lowercase ASCII and protected by a unique MongoDB index. Index
+setup runs before the HTTP listener starts; invalid existing data fails startup.
+
+Use GraphiQL (enable with `GRAPHIQL_ENABLED=true`) or POST `/graphql`:
+
+```graphql
+mutation Login($email: String!, $password: String!) {
+  login(email: $email, password: $password) {
+    token
+    expiresIn
+    user { id email roles }
+  }
+}
+```
+
+The access token lasts 900 seconds. Set the GraphiQL Headers panel to:
+
+```json
+{"Authorization": "Bearer REPLACE_WITH_RETURNED_TOKEN"}
+```
+
+Then query:
+
+```graphql
+query { me { id email roles } }
+```
+
+Without credentials, `me` returns null. If an Authorization header is present,
+malformed, expired or invalid credentials return HTTP 401, even for public queries.
+An authentication database outage returns 503 rather than accepting an anonymous
+request. JWTs require HS256, expiry, issuer `crud-monster-rust`, audience
+`crud-monster-api`, an access-token type and a valid subject. Password hashes and
+JWT signing keys are never GraphQL fields. Roles are loaded from MongoDB on every
+request rather than trusted from token claims.
+
+Authentication stores accounts in `gmb_rust_User` with private `passwordHash`,
+`disabled` and `tokenVersion` fields. Disabling/deleting an account immediately
+rejects its tokens. A trusted administrator can increment `tokenVersion` to revoke
+all of an account's existing tokens. Client logout discards the token; there is no
+refresh-token, server logout, registration, password-change or recovery endpoint
+in this step. Existing bcrypt 2a/2b/2y hashes with cost 4–16 verify unchanged,
+provided passwords fit the 72-byte limit. TypeScript account storage and JWT
+formats are not automatically migrated.
+
+Login errors do not disclose whether an account exists. Missing accounts still
+perform bcrypt work. Each process limits attempts to 10 per normalized email per
+60 seconds, bounds the limiter to 1024 active email keys, and permits at most four
+concurrent login operations. Apply shared ingress limits when running multiple
+server instances; these in-memory limits are not distributed.
+
+Authentication does not yet unlock `user`, `owner`, role or filter CRUD rules.
+Those operations remain Forbidden until the authorization step. Public
+registration and public role assignment are not exposed.
+
+For an earlier generated application, merge updated Cargo.toml, src/auth.rs,
+src/lib.rs, src/config.rs, src/server.rs and src/main.rs from a fresh output.
+The main must use `router_with_auth` and initialize the auth indexes. Existing
+editable files and `.env` are preserved, so an existing `.env` without a JWT key
+must be supplied with a random `JWT_TOKEN_SECRET`. `src/generated/graphql.rs`
+regenerates login/me automatically. Legacy router helpers without an auth service
+keep public CRUD available but return an explicit error for login.
+
+The optional live smoke test creates a separate `gmb_rust_auth_test_*` database,
+checks login/JWT/disabled accounts/role reload/revocation, and drops it on success.
+It does not create users in the database named in `GMB_MONGODB_URL`.

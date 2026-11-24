@@ -24,8 +24,10 @@ function graphqlType(member: SchemaModelMember): string {
 export function generateRustGraphql(models: SchemaModel[]): string {
     const supported = models.filter(supportsRustCrud)
     const types: string[] = []
-    const queries = ['    async fn health(&self) -> bool { true }']
-    const mutations: string[] = []
+    const queries = ['    async fn health(&self) -> bool { true }', `    async fn me(&self, ctx: &async_graphql::Context<'_>) -> Option<crate::auth::CurrentUser> { crate::auth::me(ctx) }`]
+    const mutations: string[] = [`    async fn login(&self, ctx: &async_graphql::Context<'_>, email: String, password: String) -> async_graphql::Result<crate::auth::LoginPayload> {
+        crate::auth::login(ctx, email, password).await
+    }`]
     supported.forEach((model, index) => {
         const name = rustTypeName(model)
         const output = `Crud${name}Output`
@@ -103,17 +105,22 @@ pub struct QueryRoot;
 impl QueryRoot {
 ${queries.join('\n')}
 }
-${supported.length ? `pub struct MutationRoot;
+pub struct MutationRoot;
 #[async_graphql::Object]
 impl MutationRoot {
 ${mutations.join('\n')}
-}` : 'pub type MutationRoot = async_graphql::EmptyMutation;'}
+}
 
 pub type AppSchema = async_graphql::Schema<QueryRoot, MutationRoot, async_graphql::EmptySubscription>;
 
 pub fn schema(database: mongodb::Database) -> AppSchema {
-    async_graphql::Schema::build(QueryRoot, ${supported.length ? 'MutationRoot' : 'async_graphql::EmptyMutation'}, async_graphql::EmptySubscription)
+    schema_with_auth(database, None)
+}
+
+pub fn schema_with_auth(database: mongodb::Database, auth: Option<crate::auth::AuthService>) -> AppSchema {
+    async_graphql::Schema::build(QueryRoot, MutationRoot, async_graphql::EmptySubscription)
         .data(database)
+        .data(auth)
         .limit_depth(8)
         .limit_complexity(64)
         .finish()

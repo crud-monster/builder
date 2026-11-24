@@ -117,6 +117,7 @@ fn built_in_password_is_not_serialized() {
 `)
     fs.copyFileSync(path.join(__dirname, 'rust-server-tests.rs'), path.join(root, 'tests', 'server.rs'))
     fs.copyFileSync(path.join(__dirname, 'rust-crud-tests.rs'), path.join(root, 'tests', 'crud.rs'))
+    fs.copyFileSync(path.join(__dirname, 'rust-auth-tests.rs'), path.join(root, 'tests', 'auth.rs'))
     const cliSchema = path.join(root, 'input.schema')
     fs.writeFileSync(cliSchema, schema)
     const cli = path.resolve(__dirname, '../bin/cli.js')
@@ -151,7 +152,7 @@ fn built_in_password_is_not_serialized() {
     run('test', '--locked')
     if (process.env.GMB_MONGODB_URL) run('test', '--locked', '--', '--ignored')
     fs.rmSync(root, { recursive: true, force: true })
-    console.log('Rust smoke passed: Cargo check, model serialization, typed CRUD, permissions/input validation, HTTP routes, configuration, and regeneration.')
+    console.log('Rust smoke passed: Cargo check, model serialization, typed CRUD, permissions/input validation, HTTP routes, configuration, bcrypt/JWT authentication, and regeneration.')
 }
 main().catch(error => {
     console.error(error)
